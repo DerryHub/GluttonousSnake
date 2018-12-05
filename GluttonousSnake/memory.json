@@ -1,0 +1,27 @@
+{
+	"model":	0,
+	"difficulty":	0,
+	"direction_1":	2,
+	"snakes":	{
+		"snake_1":	{
+			"snake_1_x":	[29, 28, 27, 26, 25, 24],
+			"snake_1_y":	[9, 9, 9, 9, 9, 9]
+		},
+		"snake_2":	{
+			"snake_2_x":	[],
+			"snake_2_y":	[]
+		}
+	},
+	"food":	{
+		"food_x":	[9, 6, 16, 7, 14, 6, 16, 10, 9, 21],
+		"food_y":	[27, 24, 29, 7, 8, 19, 28, 28, 2, 17]
+	},
+	"poi_weed":	{
+		"poi_weed_x":	[11, 20],
+		"poi_weed_y":	[2, 29]
+	},
+	"landmine":	{
+		"landmine_x":	[2],
+		"landmine_y":	[1]
+	}
+}
