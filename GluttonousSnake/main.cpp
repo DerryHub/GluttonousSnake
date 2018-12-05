@@ -11,7 +11,7 @@
 #define MAP_Y 30
 #define DX 20
 #define DY 20
-#define SNAKE_INIT_LEAGTH 5
+#define SNAKE_INIT_LENGTH 5
 #define KEY_LEFT 75
 #define KEY_UP 72
 #define KEY_RIGHT 77
@@ -54,6 +54,7 @@ typedef enum {
 	startGame,
 	modelSetting,
 	difficultySetting,
+	continueGame,
 	nothing
 }Operation;
 typedef enum {
@@ -90,7 +91,7 @@ int poiWeeds_x[NUM_OF_POI_WEEDS_IMPOSSIBLE];
 int poiWeeds_y[NUM_OF_POI_WEEDS_IMPOSSIBLE];
 int landmine_x[NUM_OF_LANDMINE_IMPOSSIBLE];
 int landmine_y[NUM_OF_LANDMINE_IMPOSSIBLE];
-int snakeLength = SNAKE_INIT_LEAGTH;
+int snakeLength = SNAKE_INIT_LENGTH;
 int foodIndex[NUM_OF_FOODS_SIMPLE];
 
 char map[MAP_Y][MAP_X];
@@ -102,6 +103,8 @@ Bool hasFood = false;
 Bool hasPoiWeeds = false;
 Bool hasLandmine = false;
 Bool keyUsed = false;
+Bool doContinue = false;
+Bool isOver = false;
 
 IMAGE startBackground;
 IMAGE readyImage;
@@ -130,7 +133,7 @@ Difficulty currentDifficulty = simple_Difficulty;
 void initMap();
 void paintSnake(int, int, int, int);
 void paintMap();
-Snake* initSnake();
+Snake* initSnake(int);
 void updateMap();
 void move(Direction);
 Direction listenDirection(int, Direction);
@@ -145,7 +148,7 @@ void createLandmine(int, int, int, int);
 void reduceHalf();
 Bool eatLandmine(Direction);
 Bool isGameOver();
-void gameStart();
+void gameStart(Bool);
 void loadAllImages();
 Operation startMouseListening();
 IMAGE* getSnakeImage(Snake*, Player);
@@ -153,6 +156,7 @@ void paintModelSetting();
 void paintDifficultySetting();
 void paintScore(int score);
 void writeFile(Direction);
+Bool readFile(Direction*);
 
 int main() {
 	srand(time(0));
@@ -166,14 +170,18 @@ start:
 	Operation op = startMouseListening();
 	switch (op) {
 	case startGame:
+		doContinue = false;
 		goto startGame;
 	case modelSetting:
 		goto modelSetting;
 	case difficultySetting:
 		goto difficultySetting;
+	case continueGame:
+		doContinue = true;
+		goto startGame;
 	}
 startGame:
-	gameStart();
+	gameStart(doContinue);
 	goto pause;
 modelSetting:
 	paintModelSetting();
@@ -184,6 +192,116 @@ difficultySetting:
 pause:
 	system("pause");
 	return 0;
+}
+
+Bool readFile(Direction *direction) {
+	FILE *fp;
+	if ((fp=fopen("memory.json", "r")) != NULL)
+	{
+		char fileStr[3000];
+		char *sp = fileStr;
+		char temp;
+		temp = fgetc(fp);
+		while (temp != EOF) {
+			*sp = temp;
+			sp++;
+			temp = fgetc(fp);
+		}
+		*sp = '\0';
+
+		cJSON *memory = cJSON_Parse(fileStr);
+		cJSON *snakes = cJSON_GetObjectItem(memory, "snakes");
+		cJSON *snake_1 = cJSON_GetObjectItem(snakes, "snake_1");
+		cJSON *snake_2 = cJSON_GetObjectItem(snakes, "snake_2");
+		cJSON *snake_1_x_arr = cJSON_GetObjectItem(snake_1, "snake_1_x");
+		cJSON *snake_2_x_arr = cJSON_GetObjectItem(snake_2, "snake_2_x");
+		cJSON *snake_1_y_arr = cJSON_GetObjectItem(snake_1, "snake_1_y");
+		cJSON *snake_2_y_arr = cJSON_GetObjectItem(snake_2, "snake_2_y");
+		cJSON *food = cJSON_GetObjectItem(memory, "food");
+		cJSON *poi_weed = cJSON_GetObjectItem(memory, "poi_weed");
+		cJSON *landmine = cJSON_GetObjectItem(memory, "landmine");
+		cJSON *food_x_arr = cJSON_GetObjectItem(food, "food_x");
+		cJSON *food_y_arr = cJSON_GetObjectItem(food, "food_y");
+		cJSON *foodIndex_arr = cJSON_GetObjectItem(food, "foodIndex");
+		cJSON *poi_weed_x_arr = cJSON_GetObjectItem(poi_weed, "poi_weed_x");
+		cJSON *poi_weed_y_arr = cJSON_GetObjectItem(poi_weed, "poi_weed_y");
+		cJSON *landmine_x_arr = cJSON_GetObjectItem(landmine, "landmine_x");
+		cJSON *landmine_y_arr = cJSON_GetObjectItem(landmine, "landmine_y");
+		
+		Model model = (Model)atoi(cJSON_Print(cJSON_GetObjectItem(memory, "model")));
+		Difficulty difficulty = (Difficulty)atoi(cJSON_Print(cJSON_GetObjectItem(memory, "difficulty")));
+		Direction direction_1 = (Direction)atoi(cJSON_Print(cJSON_GetObjectItem(memory, "direction_1")));
+
+		int temp_x, temp_y;
+		int snakeSize_1 = cJSON_GetArraySize(snake_1_x_arr);
+		head = initSnake(snakeSize_1);
+		Snake *snakeTemp = head;
+		for (int i = 0; i < snakeSize_1; i++)
+		{
+			temp_x = atoi(cJSON_Print(cJSON_GetArrayItem(snake_1_x_arr, i)));
+			temp_y = atoi(cJSON_Print(cJSON_GetArrayItem(snake_1_y_arr, i)));
+			snakeTemp->point.x = temp_x;
+			snakeTemp->point.y = temp_y;
+			snakeTemp = snakeTemp->next;
+		}
+
+		int foodSize = cJSON_GetArraySize(food_x_arr);
+		for (int i = 0; i < NUM_OF_FOODS_SIMPLE; i++)
+		{
+			if (i < foodSize)
+			{
+				food_x[i] = atoi(cJSON_Print(cJSON_GetArrayItem(food_x_arr, i)));
+				food_y[i] = atoi(cJSON_Print(cJSON_GetArrayItem(food_y_arr, i)));
+				foodIndex[i] = atoi(cJSON_Print(cJSON_GetArrayItem(foodIndex_arr, i)));
+			}
+			else {
+				food_x[i] = -2;
+				food_y[i] = -2;
+			}
+			
+		}
+
+		int poi_weedSize = cJSON_GetArraySize(poi_weed_x_arr);
+		for (int i = 0; i < NUM_OF_POI_WEEDS_IMPOSSIBLE; i++)
+		{
+			if (i < poi_weedSize) {
+				poiWeeds_x[i] = atoi(cJSON_Print(cJSON_GetArrayItem(poi_weed_x_arr, i)));
+				poiWeeds_y[i] = atoi(cJSON_Print(cJSON_GetArrayItem(poi_weed_y_arr, i)));
+			}
+			else {
+				poiWeeds_x[i] = -2;
+				poiWeeds_y[i] = -2;
+			}
+		}
+
+		int landmineSize = cJSON_GetArraySize(landmine_x_arr);
+		for (int i = 0; i < NUM_OF_LANDMINE_IMPOSSIBLE; i++)
+		{
+			if (i < landmineSize) {
+				landmine_x[i] = atoi(cJSON_Print(cJSON_GetArrayItem(landmine_x_arr, i)));
+				landmine_y[i] = atoi(cJSON_Print(cJSON_GetArrayItem(landmine_y_arr, i)));
+			}
+			else {
+				landmine_x[i] = -2;
+				landmine_y[i] = -2;
+			}
+		}
+
+		paintPoiWeeds = true;
+		hasFood = true;
+		hasPoiWeeds = true;
+		hasLandmine = true;
+
+		*direction = direction_1;
+		currentModel = model;
+		currentDifficulty = difficulty;
+		snakeLength = snakeSize_1;
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
 
 void writeFile(Direction direction) {
@@ -201,6 +319,7 @@ void writeFile(Direction direction) {
 	cJSON *landmine = cJSON_CreateObject();
 	cJSON *food_x_arr = cJSON_CreateArray();
 	cJSON *food_y_arr = cJSON_CreateArray();
+	cJSON *foodIndex_arr = cJSON_CreateArray();
 	cJSON *poi_weed_x_arr = cJSON_CreateArray();
 	cJSON *poi_weed_y_arr = cJSON_CreateArray();
 	cJSON *landmine_x_arr = cJSON_CreateArray();
@@ -219,6 +338,7 @@ void writeFile(Direction direction) {
 	cJSON_AddItemToObject(memory, "food", food);
 	cJSON_AddItemToObject(food, "food_x", food_x_arr);
 	cJSON_AddItemToObject(food, "food_y", food_y_arr);
+	cJSON_AddItemToObject(food, "foodIndex", foodIndex_arr);
 	cJSON_AddItemToObject(memory, "poi_weed", poi_weed);
 	cJSON_AddItemToObject(poi_weed, "poi_weed_x", poi_weed_x_arr);
 	cJSON_AddItemToObject(poi_weed, "poi_weed_y", poi_weed_y_arr);
@@ -237,6 +357,7 @@ void writeFile(Direction direction) {
 	{
 		cJSON_AddItemToArray(food_x_arr, cJSON_CreateNumber(food_x[i]));
 		cJSON_AddItemToArray(food_y_arr, cJSON_CreateNumber(food_y[i]));
+		cJSON_AddItemToArray(foodIndex_arr, cJSON_CreateNumber(foodIndex[i]));
 	}
 
 	for (int i = 0; i < numOfPoiWeeds; i++)
@@ -425,6 +546,7 @@ Operation startMouseListening() {
 				}
 				else if (x > 570 && x < 770 && y > 560 && y < 600) {
 					//continue game
+					return continueGame;
 				}
 			}
 		}
@@ -624,7 +746,7 @@ void loadAllImages() {
 	loadimage(&snake_2[4][3], "images/snake/tail_left_2.png");
 }
 
-void gameStart() {
+void gameStart(Bool doContinue) {
 	int score;
 	int poiWeedsTime = 0;
 	Direction direction = LEFT, d_temp;
@@ -633,8 +755,22 @@ void gameStart() {
 	Bool start = false;
 	putimage(0, 200, &readyImage);
 	Sleep(2000);
-	initMap();
-	head = initSnake();
+	if (doContinue)
+	{
+		if (readFile(&direction)) {
+			
+		}
+		else
+		{
+			initMap();
+			head = initSnake(SNAKE_INIT_LENGTH);
+		}
+	}
+	else
+	{
+		initMap();
+		head = initSnake(SNAKE_INIT_LENGTH);
+	}
 	cleardevice();
 	while (true)
 	{
@@ -648,7 +784,7 @@ void gameStart() {
 		putimage(0, 0, &gameBackground);
 		updateMap();
 		paintMap();
-		score = 10 * (snakeLength - SNAKE_INIT_LEAGTH);
+		score = 10 * (snakeLength - SNAKE_INIT_LENGTH);
 		paintScore(score);
 		if (!start)
 		{
@@ -683,11 +819,19 @@ void gameStart() {
 		}
 		else if (eatPoiWeed(direction))
 		{
+			if (snakeLength <= 2)
+			{
+				isOver = true;
+			}
 			reduceCell();
 			snakeLength--;
 			move(direction);
 		}
 		else if (eatLandmine(direction)) {
+			if (snakeLength <= 2)
+			{
+				isOver = true;
+			}
 			reduceHalf();
 			snakeLength = snakeLength - snakeLength / 2;
 			move(direction);
@@ -696,7 +840,7 @@ void gameStart() {
 		{
 			move(direction);
 		}
-		if (isGameOver())
+		if (isGameOver() || isOver)
 		{
 			break;
 		}
@@ -1146,13 +1290,13 @@ void paintSnake(int x0, int y0, int dx, int dy) {
 	}
 }
 
-Snake* initSnake() {
+Snake* initSnake(int length) {
 	Snake*head;
-	head = (Snake*)malloc(sizeof(Snake)*SNAKE_INIT_LEAGTH);
-	tail = &head[SNAKE_INIT_LEAGTH - 1];
-	for (int i = 0; i < SNAKE_INIT_LEAGTH; i++)
+	head = (Snake*)malloc(sizeof(Snake)*length);
+	tail = &head[length - 1];
+	for (int i = 0; i < length; i++)
 	{
-		if (i < SNAKE_INIT_LEAGTH - 1)
+		if (i < length - 1)
 		{
 			head[i].next = &head[i + 1];
 			head[i + 1].previous = &head[i];
@@ -1168,12 +1312,7 @@ Snake* initSnake() {
 }
 
 void updateMap() {
-	for (int i = 0; i < MAP_Y; i++)
-	{
-		for (int j = 0; j < MAP_X; j++) {
-			map[j][i] = NOTHING;
-		}
-	}
+	initMap();
 	Snake* temp = head;
 	int x, y;
 	while (temp != NULL) {
@@ -1190,5 +1329,26 @@ void updateMap() {
 			map[x][y] = BODY;
 		}
 		temp = temp->next;
+	}
+
+	for (int i = 0; i < NUM_OF_FOODS_SIMPLE; i++)
+	{
+		if (food_x[i] != -2 && food_y[i] != -2) {
+			map[food_x[i]][food_y[i]] = FOOD;
+		}
+	}
+
+	for (int i = 0; i < NUM_OF_POI_WEEDS_IMPOSSIBLE; i++)
+	{
+		if (poiWeeds_x[i] != -2 && poiWeeds_y[i] != -2) {
+			map[poiWeeds_x[i]][poiWeeds_y[i]] = POI_WEED;
+		}
+	}
+
+	for (int i = 0; i < NUM_OF_LANDMINE_IMPOSSIBLE; i++)
+	{
+		if (landmine_x[i] != -2 && landmine_y[i] != -2) {
+			map[landmine_x[i]][landmine_y[i]] = LANDMINE;
+		}
 	}
 }
