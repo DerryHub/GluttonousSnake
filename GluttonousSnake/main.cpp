@@ -22,7 +22,7 @@
 #define FOOD 3
 #define POI_WEED 4
 #define LANDMINE 5
-#define SLEEP_TIME_SIMPLE 200
+#define SLEEP_TIME_SIMPLE 150
 #define SLEEP_TIME_DIFFICULT 100
 #define SLEEP_TIME_IMPOSSIBLE 50
 #define NUM_OF_POI_WEEDS_SIMPLE 2
@@ -34,10 +34,12 @@
 #define NUM_OF_FOODS_SIMPLE 10
 #define NUM_OF_FOODS_DIFFICULT 5
 #define NUM_OF_FOODS_IMPOSSIBLE 1
+#define SCORE_SIMPLE 200
+#define SCORE_DIFFICULT 300
+#define SCORE_IMPOSSIBLE 400
 #define FLASH_FREQ 3
-#define POI_WEEDS_TIME 1000
+#define POI_WEEDS_TIME 5000
 #define KINDS_OF_FOODS 12
-
 
 #pragma warning(disable:4996)
 
@@ -93,10 +95,12 @@ int landmine_x[NUM_OF_LANDMINE_IMPOSSIBLE];
 int landmine_y[NUM_OF_LANDMINE_IMPOSSIBLE];
 int snakeLength = SNAKE_INIT_LENGTH;
 int foodIndex[NUM_OF_FOODS_SIMPLE];
+int scoreThresholdValue = SCORE_SIMPLE;
 
 char map[MAP_Y][MAP_X];
 
-Snake *head, *tail;
+Snake *head_1, *tail_1;
+Snake *head_2, *tail_2;
 
 Bool paintPoiWeeds = false;
 Bool hasFood = false;
@@ -105,6 +109,9 @@ Bool hasLandmine = false;
 Bool keyUsed = false;
 Bool doContinue = false;
 Bool isOver = false;
+Bool isWin;
+Bool isPause = false;
+Bool poi_weedOff = false;
 
 IMAGE startBackground;
 IMAGE readyImage;
@@ -125,28 +132,34 @@ IMAGE settingBack;
 IMAGE simpleModel;
 IMAGE difficultModel;
 IMAGE impossibleModel;
+IMAGE singleLoss;
+IMAGE singleWin;
+IMAGE b_menu;
+IMAGE b_pause;
 
 Model currentModel = single_Model;
 
 Difficulty currentDifficulty = simple_Difficulty;
+
+Direction direction_1 = LEFT;
 
 void initMap();
 void paintSnake(int, int, int, int);
 void paintMap();
 Snake* initSnake(int);
 void updateMap();
-void move(Direction);
-Direction listenDirection(int, Direction);
+void move();
+Direction listenDirection(int);
 void createFood(int, int, int, int);
 void paintCell(int, int, int, int, int x, int y);
-void growUp(Direction);
-Bool eatFood(Direction);
+void growUp();
+Bool eatFood();
 void createPoiWeeds(int, int, int, int);
 void reduceCell();
-Bool eatPoiWeed(Direction);
+Bool eatPoiWeed();
 void createLandmine(int, int, int, int);
 void reduceHalf();
-Bool eatLandmine(Direction);
+Bool eatLandmine();
 Bool isGameOver();
 void gameStart(Bool);
 void loadAllImages();
@@ -155,8 +168,13 @@ IMAGE* getSnakeImage(Snake*, Player);
 void paintModelSetting();
 void paintDifficultySetting();
 void paintScore(int score);
-void writeFile(Direction);
-Bool readFile(Direction*);
+void writeFile();
+Bool readFile();
+void paintGameOver(Bool);
+void initParameter();
+void paintButtons();
+void doContinueGame(Bool);
+
 
 int main() {
 	srand(time(0));
@@ -182,7 +200,7 @@ start:
 	}
 startGame:
 	gameStart(doContinue);
-	goto pause;
+	goto start;
 modelSetting:
 	paintModelSetting();
 	goto start;
@@ -194,7 +212,56 @@ pause:
 	return 0;
 }
 
-Bool readFile(Direction *direction) {
+void doContinueGame(Bool doContinue) {
+	if (doContinue)
+	{
+		if (readFile()) {
+
+		}
+		else
+		{
+			initMap();
+			head_1 = initSnake(SNAKE_INIT_LENGTH);
+		}
+	}
+	else
+	{
+		initMap();
+		head_1 = initSnake(SNAKE_INIT_LENGTH);
+	}
+}
+
+void paintButtons() {
+	putimage(635, 480, &b_pause);
+	putimage(635, 550, &b_menu);
+}
+
+void initParameter() {
+	paintPoiWeeds = false;
+	hasFood = false;
+	hasPoiWeeds = false;
+	hasLandmine = false;
+	keyUsed = false;
+	doContinue = false;
+	isOver = false;
+	snakeLength = SNAKE_INIT_LENGTH;
+	poi_weedOff = false;
+}
+
+void paintGameOver(Bool isWin) {
+	IMAGE *img;
+	if (isWin)
+	{
+		img = &singleWin;
+	}
+	else {
+		img = &singleLoss;
+	}
+	putimage(0, 200, img);
+	Sleep(5000);
+}
+
+Bool readFile() {
 	FILE *fp;
 	if ((fp=fopen("memory.json", "r")) != NULL)
 	{
@@ -230,12 +297,14 @@ Bool readFile(Direction *direction) {
 		
 		Model model = (Model)atoi(cJSON_Print(cJSON_GetObjectItem(memory, "model")));
 		Difficulty difficulty = (Difficulty)atoi(cJSON_Print(cJSON_GetObjectItem(memory, "difficulty")));
-		Direction direction_1 = (Direction)atoi(cJSON_Print(cJSON_GetObjectItem(memory, "direction_1")));
+		
+		direction_1 = (Direction)atoi(cJSON_Print(cJSON_GetObjectItem(memory, "direction_1")));
+		poi_weedOff = (Bool)atoi(cJSON_Print(cJSON_GetObjectItem(poi_weed, "poi_weedOff")));
 
 		int temp_x, temp_y;
 		int snakeSize_1 = cJSON_GetArraySize(snake_1_x_arr);
-		head = initSnake(snakeSize_1);
-		Snake *snakeTemp = head;
+		head_1 = initSnake(snakeSize_1);
+		Snake *snakeTemp = head_1;
 		for (int i = 0; i < snakeSize_1; i++)
 		{
 			temp_x = atoi(cJSON_Print(cJSON_GetArrayItem(snake_1_x_arr, i)));
@@ -292,10 +361,14 @@ Bool readFile(Direction *direction) {
 		hasPoiWeeds = true;
 		hasLandmine = true;
 
-		*direction = direction_1;
 		currentModel = model;
 		currentDifficulty = difficulty;
 		snakeLength = snakeSize_1;
+		if (memory == NULL)
+		{
+			return false;
+		}
+		cJSON_Delete(memory);
 		return true;
 	}
 	else
@@ -304,7 +377,7 @@ Bool readFile(Direction *direction) {
 	}
 }
 
-void writeFile(Direction direction) {
+void writeFile() {
 	FILE *fp;
 	cJSON *memory = cJSON_CreateObject();
 	cJSON *snakes = cJSON_CreateObject();
@@ -327,7 +400,8 @@ void writeFile(Direction direction) {
 
 	cJSON_AddNumberToObject(memory, "model", currentModel);
 	cJSON_AddNumberToObject(memory, "difficulty", currentDifficulty);
-	cJSON_AddNumberToObject(memory, "direction_1", direction);
+	cJSON_AddNumberToObject(poi_weed, "poi_weedOff", poi_weedOff);
+	cJSON_AddNumberToObject(memory, "direction_1", direction_1);
 	cJSON_AddItemToObject(memory, "snakes", snakes);
 	cJSON_AddItemToObject(snakes, "snake_1", snake_1);
 	cJSON_AddItemToObject(snakes, "snake_2", snake_2);
@@ -346,7 +420,7 @@ void writeFile(Direction direction) {
 	cJSON_AddItemToObject(landmine, "landmine_x", landmine_x_arr);
 	cJSON_AddItemToObject(landmine, "landmine_y", landmine_y_arr);
 
-	Snake *temp = head;
+	Snake *temp = head_1;
 	while (temp != NULL) {
 		cJSON_AddItemToArray(snake_1_x_arr, cJSON_CreateNumber(temp->point.x));
 		cJSON_AddItemToArray(snake_1_y_arr, cJSON_CreateNumber(temp->point.y));
@@ -375,6 +449,8 @@ void writeFile(Direction direction) {
 	fp = fopen("memory.json", "w");
 	fputs(cJSON_Print(memory), fp);
 	fclose(fp);
+
+	cJSON_Delete(memory);
 }
 
 void paintScore(int score) {
@@ -400,11 +476,24 @@ IMAGE* getSnakeImage(Snake* snakeBody, Player player) {
 			snakeArr = snake_2;
 			break;
 	}
+	if (snakeLength == 1)
+	{
+		switch (direction_1) {
+		case UP:
+			return &snakeArr[0][0];
+		case RIGHT:
+			return &snakeArr[0][1];
+		case DOWN:
+			return &snakeArr[0][2];
+		case LEFT:
+			return &snakeArr[0][3];
+		}
+	}
 
 	int px, py;
 	int x, y;
 	int nx, ny;
-	if (snakeBody == head)
+	if (snakeBody == head_1)
 	{
 		x = snakeBody->point.x;
 		y = snakeBody->point.y;
@@ -430,7 +519,7 @@ IMAGE* getSnakeImage(Snake* snakeBody, Player player) {
 		}
 		return NULL;
 	}
-	else if (snakeBody == tail)
+	else if (snakeBody == tail_1)
 	{
 		x = snakeBody->point.x;
 		y = snakeBody->point.y;
@@ -582,6 +671,7 @@ startPaint:
 					numOfLandmine = NUM_OF_LANDMINE_SIMPLE;
 					numOfFood = NUM_OF_FOODS_SIMPLE;
 					currentDifficulty = simple_Difficulty;
+					scoreThresholdValue = SCORE_SIMPLE;
 					goto startPaint;
 				}
 				else if (x > 300 && x < 500 && y > 230 && y < 290)
@@ -593,6 +683,7 @@ startPaint:
 					numOfLandmine = NUM_OF_LANDMINE_DIFFICULT;
 					numOfFood = NUM_OF_FOODS_DIFFICULT;
 					currentDifficulty = difficult_Difficulty;
+					scoreThresholdValue = SCORE_DIFFICULT;
 					goto startPaint;
 				}
 				else if (x > 300 && x < 500 && y > 330 && y < 390)
@@ -604,6 +695,7 @@ startPaint:
 					numOfLandmine = NUM_OF_LANDMINE_IMPOSSIBLE;
 					numOfFood = NUM_OF_FOODS_IMPOSSIBLE;
 					currentDifficulty = impossible_Difficulty;
+					scoreThresholdValue = SCORE_IMPOSSIBLE;
 					goto startPaint;
 				}
 				else if (x > 300 && x < 500 && y > 430 && y < 490)
@@ -688,9 +780,14 @@ void loadAllImages() {
 	loadimage(foods + 9, "images/foods/food_10.png");
 	loadimage(foods + 10, "images/foods/food_11.png");
 	loadimage(foods + 11, "images/foods/food_12.png");
+	loadimage(&singleLoss, "images/background/single_loss.png");
+	loadimage(&singleWin, "images/background/single_win.png");
+	loadimage(&b_menu, "images/buttons/b_menu.png");
+	loadimage(&b_pause, "images/buttons/b_pause.png");
+
 	//up right down left
 	//snake_1 init
-	//init head
+	//init head_1
 	loadimage(&snake_1[0][0], "images/snake/head_up_1.png");
 	loadimage(&snake_1[0][1], "images/snake/head_right_1.png");
 	loadimage(&snake_1[0][2], "images/snake/head_down_1.png");
@@ -711,14 +808,14 @@ void loadAllImages() {
 	loadimage(&snake_1[3][1], "images/snake/body_rtod_1.png");
 	loadimage(&snake_1[3][2], "images/snake/body_dtol_1.png");
 	loadimage(&snake_1[3][3], "images/snake/body_ltou_1.png");
-	//init tail
+	//init tail_1
 	loadimage(&snake_1[4][0], "images/snake/tail_up_1.png");
 	loadimage(&snake_1[4][1], "images/snake/tail_right_1.png");
 	loadimage(&snake_1[4][2], "images/snake/tail_down_1.png");
 	loadimage(&snake_1[4][3], "images/snake/tail_left_1.png");
 	
 	//snake_2 init
-	//init head
+	//init head_1
 	loadimage(&snake_2[0][0], "images/snake/head_up_2.png");
 	loadimage(&snake_2[0][1], "images/snake/head_right_2.png");
 	loadimage(&snake_2[0][2], "images/snake/head_down_2.png");
@@ -739,7 +836,7 @@ void loadAllImages() {
 	loadimage(&snake_2[3][1], "images/snake/body_rtod_2.png");
 	loadimage(&snake_2[3][2], "images/snake/body_dtol_2.png");
 	loadimage(&snake_2[3][3], "images/snake/body_ltou_2.png");
-	//init tail
+	//init tail_1
 	loadimage(&snake_2[4][0], "images/snake/tail_up_2.png");
 	loadimage(&snake_2[4][1], "images/snake/tail_right_2.png");
 	loadimage(&snake_2[4][2], "images/snake/tail_down_2.png");
@@ -749,35 +846,17 @@ void loadAllImages() {
 void gameStart(Bool doContinue) {
 	int score;
 	int poiWeedsTime = 0;
-	Direction direction = LEFT, d_temp;
+	Direction d_temp;
 	int keyASC;
 	int poi_times = 0;
 	Bool start = false;
 	putimage(0, 200, &readyImage);
 	Sleep(2000);
-	if (doContinue)
-	{
-		if (readFile(&direction)) {
-			
-		}
-		else
-		{
-			initMap();
-			head = initSnake(SNAKE_INIT_LENGTH);
-		}
-	}
-	else
-	{
-		initMap();
-		head = initSnake(SNAKE_INIT_LENGTH);
-	}
+	doContinueGame(doContinue);
 	cleardevice();
 	while (true)
 	{
-		if (poiWeedsTime <= POI_WEEDS_TIME)
-		{
-			poiWeedsTime += sleepTime / FLASH_FREQ;
-		}
+		
 		paintPoiWeeds = !paintPoiWeeds;
 		keyUsed = false;
 		cleardevice();
@@ -793,63 +872,116 @@ void gameStart(Bool doContinue) {
 			start = true;
 		}
 		Sleep(sleepTime / FLASH_FREQ);
-		if (FLASH_FREQ != poi_times++)
+		MOUSEMSG msg;
+		int x, y;
+		while (MouseHit())
 		{
+			msg = GetMouseMsg();
+			x = msg.x;
+			y = msg.y;
+			switch (msg.uMsg)
+			{
+			case WM_LBUTTONDOWN:
+				if (x > 635 && x < 785 && y>480 && y < 530)
+				{
+					isPause = !isPause;
+				}
+				else if (x > 635 && x < 785 && y > 550 && y < 600)
+				{
+					goto start;
+				}
+			}
+		}
+		while (_kbhit()) {
+			keyASC = _getch();
+			switch (keyASC)
+			{
+			case ' ':
+				isPause = !isPause;
+			}
+			if (!keyUsed)
+			{
+				d_temp = listenDirection(keyASC);
+				if (d_temp != ERR)
+				{
+					direction_1 = d_temp;
+					keyUsed = true;
+				}
+			}
+		}
+		if (FLASH_FREQ != poi_times)
+		{
+			if (!isPause)
+			{
+				poi_times++;
+				if (poiWeedsTime <= POI_WEEDS_TIME)
+				{
+					poiWeedsTime += (int)(sleepTime / FLASH_FREQ);
+				}
+				else
+				{
+					poiWeedsTime = 0;
+					hasPoiWeeds = false;
+					poi_weedOff = !poi_weedOff;
+				}
+			}
 			continue;
 		}
 		else
 		{
 			poi_times = 0;
-			writeFile(direction);
+			writeFile();
 		}
-		while (_kbhit() && !keyUsed)
+		if (eatFood())
 		{
-			keyASC = _getch();
-			d_temp = listenDirection(keyASC, direction);
-			if (d_temp != ERR)
-			{
-				direction = d_temp;
-				keyUsed = true;
-			}
-		}
-		if (eatFood(direction))
-		{
-			growUp(direction);
+			growUp();
 			snakeLength++;
 		}
-		else if (eatPoiWeed(direction))
+		else if (eatPoiWeed())
 		{
-			if (snakeLength <= 2)
+			if (snakeLength <= 1)
 			{
 				isOver = true;
 			}
-			reduceCell();
-			snakeLength--;
-			move(direction);
+			else {
+				reduceCell();
+				snakeLength--;
+				move();
+			}
 		}
-		else if (eatLandmine(direction)) {
-			if (snakeLength <= 2)
+		else if (eatLandmine()) {
+			if (snakeLength <= 1)
 			{
 				isOver = true;
 			}
-			reduceHalf();
-			snakeLength = snakeLength - snakeLength / 2;
-			move(direction);
+			else {
+				reduceHalf();
+				snakeLength = snakeLength - snakeLength / 2;
+				move();
+			}
 		}
 		else
 		{
-			move(direction);
+			move();
 		}
 		if (isGameOver() || isOver)
 		{
+			isWin = false;
+			break;
+		}
+		else if (score >= scoreThresholdValue)
+		{
+			isWin = true;
 			break;
 		}
 	}
+	paintGameOver(isWin);
+start:;
 }
 
 Bool isGameOver() {
-	int x = head->point.x;
-	int y = head->point.y;
+	int x = head_1->point.x;
+	int y = head_1->point.y;
 	if (x < 0 || x > MAP_X - 1 || y < 0 || y > MAP_Y - 1 || map[x][y] == BODY)
 	{
 		return true;
@@ -860,13 +992,13 @@ Bool isGameOver() {
 	}
 }
 
-Bool eatLandmine(Direction direction) {
-	switch (direction)
+Bool eatLandmine() {
+	switch (direction_1)
 	{
 	case UP:
 		for (int i = 0; i < numOfLandmine; i++)
 		{
-			if (head->point.x == landmine_x[i] && head->point.y == landmine_y[i] + 1)
+			if (head_1->point.x == landmine_x[i] && head_1->point.y == landmine_y[i] + 1)
 			{
 				landmine_x[i] = -2;
 				landmine_y[i] = -2;
@@ -877,7 +1009,7 @@ Bool eatLandmine(Direction direction) {
 	case DOWN:
 		for (int i = 0; i < numOfLandmine; i++)
 		{
-			if (head->point.x == landmine_x[i] && head->point.y == landmine_y[i] - 1)
+			if (head_1->point.x == landmine_x[i] && head_1->point.y == landmine_y[i] - 1)
 			{
 				landmine_x[i] = -2;
 				landmine_y[i] = -2;
@@ -888,7 +1020,7 @@ Bool eatLandmine(Direction direction) {
 	case LEFT:
 		for (int i = 0; i < numOfLandmine; i++)
 		{
-			if (head->point.x == landmine_x[i] + 1 && head->point.y == landmine_y[i])
+			if (head_1->point.x == landmine_x[i] + 1 && head_1->point.y == landmine_y[i])
 			{
 				landmine_x[i] = -2;
 				landmine_y[i] = -2;
@@ -899,7 +1031,7 @@ Bool eatLandmine(Direction direction) {
 	case RIGHT:
 		for (int i = 0; i < numOfLandmine; i++)
 		{
-			if (head->point.x == landmine_x[i] - 1 && head->point.y == landmine_y[i])
+			if (head_1->point.x == landmine_x[i] - 1 && head_1->point.y == landmine_y[i])
 			{
 				landmine_x[i] = -2;
 				landmine_y[i] = -2;
@@ -916,11 +1048,11 @@ void reduceHalf() {
 	int t = snakeLength / 2;
 	for (int i = 0; i < t; i++)
 	{
-		tail = tail->previous;
-		//free(tail->next);
+		tail_1 = tail_1->previous;
+		//free(tail_1->next);
 	}
-	tail->isTail = true;
-	tail->next = NULL;
+	tail_1->isTail = true;
+	tail_1->next = NULL;
 }
 
 void createLandmine(int x0, int y0, int dx, int dy) {
@@ -956,13 +1088,13 @@ void createLandmine(int x0, int y0, int dx, int dy) {
 	}
 }
 
-Bool eatPoiWeed(Direction direction) {
-	switch (direction)
+Bool eatPoiWeed() {
+	switch (direction_1)
 	{
 	case UP:
 		for (int i = 0; i < numOfPoiWeeds; i++)
 		{
-			if (head->point.x == poiWeeds_x[i] && head->point.y == poiWeeds_y[i] + 1)
+			if (head_1->point.x == poiWeeds_x[i] && head_1->point.y == poiWeeds_y[i] + 1)
 			{
 				poiWeeds_x[i] = -2;
 				poiWeeds_y[i] = -2;
@@ -973,7 +1105,7 @@ Bool eatPoiWeed(Direction direction) {
 	case DOWN:
 		for (int i = 0; i < numOfPoiWeeds; i++)
 		{
-			if (head->point.x == poiWeeds_x[i] && head->point.y == poiWeeds_y[i] - 1)
+			if (head_1->point.x == poiWeeds_x[i] && head_1->point.y == poiWeeds_y[i] - 1)
 			{
 				poiWeeds_x[i] = -2;
 				poiWeeds_y[i] = -2;
@@ -984,7 +1116,7 @@ Bool eatPoiWeed(Direction direction) {
 	case LEFT:
 		for (int i = 0; i < numOfPoiWeeds; i++)
 		{
-			if (head->point.x == poiWeeds_x[i] + 1 && head->point.y == poiWeeds_y[i])
+			if (head_1->point.x == poiWeeds_x[i] + 1 && head_1->point.y == poiWeeds_y[i])
 			{
 				poiWeeds_x[i] = -2;
 				poiWeeds_y[i] = -2;
@@ -995,7 +1127,7 @@ Bool eatPoiWeed(Direction direction) {
 	case RIGHT:
 		for (int i = 0; i < numOfPoiWeeds; i++)
 		{
-			if (head->point.x == poiWeeds_x[i] - 1 && head->point.y == poiWeeds_y[i])
+			if (head_1->point.x == poiWeeds_x[i] - 1 && head_1->point.y == poiWeeds_y[i])
 			{
 				poiWeeds_x[i] = -2;
 				poiWeeds_y[i] = -2;
@@ -1009,13 +1141,16 @@ Bool eatPoiWeed(Direction direction) {
 }
 
 void reduceCell() {
-	tail = tail->previous;
-	tail->isTail = true;
-	//free(tail->next);
-	tail->next = NULL;
+	tail_1 = tail_1->previous;
+	tail_1->isTail = true;
+	//free(tail_1->next);
+	tail_1->next = NULL;
 }
 
 void createPoiWeeds(int x0, int y0, int dx, int dy) {
+	if (poi_weedOff) {
+		return;
+	}
 	if (!hasPoiWeeds)
 	{
 		setfillcolor(YELLOW);
@@ -1051,13 +1186,13 @@ void createPoiWeeds(int x0, int y0, int dx, int dy) {
 	}
 }
 
-Bool eatFood(Direction direction) {
-	switch (direction)
+Bool eatFood() {
+	switch (direction_1)
 	{
 	case UP:
 		for (int i = 0; i < numOfFood; i++)
 		{
-			if (head->point.x == food_x[i] && head->point.y == food_y[i] + 1)
+			if (head_1->point.x == food_x[i] && head_1->point.y == food_y[i] + 1)
 			{
 				food_x[i] = -2;
 				food_y[i] = -2;
@@ -1068,7 +1203,7 @@ Bool eatFood(Direction direction) {
 	case DOWN:
 		for (int i = 0; i < numOfFood; i++)
 		{
-			if (head->point.x == food_x[i] && head->point.y == food_y[i] - 1)
+			if (head_1->point.x == food_x[i] && head_1->point.y == food_y[i] - 1)
 			{
 				food_x[i] = -2;
 				food_y[i] = -2;
@@ -1079,7 +1214,7 @@ Bool eatFood(Direction direction) {
 	case LEFT:
 		for (int i = 0; i < numOfFood; i++)
 		{
-			if (head->point.x == food_x[i] + 1 && head->point.y == food_y[i])
+			if (head_1->point.x == food_x[i] + 1 && head_1->point.y == food_y[i])
 			{
 				food_x[i] = -2;
 				food_y[i] = -2;
@@ -1090,7 +1225,7 @@ Bool eatFood(Direction direction) {
 	case RIGHT:
 		for (int i = 0; i < numOfFood; i++)
 		{
-			if (head->point.x == food_x[i] - 1 && head->point.y == food_y[i])
+			if (head_1->point.x == food_x[i] - 1 && head_1->point.y == food_y[i])
 			{
 				food_x[i] = -2;
 				food_y[i] = -2;
@@ -1103,30 +1238,30 @@ Bool eatFood(Direction direction) {
 	}
 }
 
-void growUp(Direction direction) {
+void growUp() {
 	Snake* newCell = (Snake*)malloc(sizeof(Snake));
-	newCell->next = head;
-	head->previous = newCell;
-	head->isHead = false;
+	newCell->next = head_1;
+	head_1->previous = newCell;
+	head_1->isHead = false;
 	newCell->isHead = true;
-	head = newCell;
-	switch (direction)
+	head_1 = newCell;
+	switch (direction_1)
 	{
 	case UP:
-		head->point.x = head->next->point.x;
-		head->point.y = head->next->point.y - 1;
+		head_1->point.x = head_1->next->point.x;
+		head_1->point.y = head_1->next->point.y - 1;
 		break;
 	case DOWN:
-		head->point.x = head->next->point.x;
-		head->point.y = head->next->point.y + 1;
+		head_1->point.x = head_1->next->point.x;
+		head_1->point.y = head_1->next->point.y + 1;
 		break;
 	case LEFT:
-		head->point.x = head->next->point.x - 1;
-		head->point.y = head->next->point.y;
+		head_1->point.x = head_1->next->point.x - 1;
+		head_1->point.y = head_1->next->point.y;
 		break;
 	case RIGHT:
-		head->point.x = head->next->point.x + 1;
-		head->point.y = head->next->point.y;
+		head_1->point.x = head_1->next->point.x + 1;
+		head_1->point.y = head_1->next->point.y;
 		break;
 	default:
 		break;
@@ -1168,29 +1303,29 @@ void createFood(int x0, int y0, int dx, int dy) {
 	}
 }
 
-Direction listenDirection(int key, Direction direction) {
+Direction listenDirection(int key) {
 	switch (key)
 	{
 	case KEY_UP:
-		if (direction == DOWN)
+		if (direction_1 == DOWN)
 		{
 			return ERR;
 		}
 		return UP;
 	case KEY_DOWN:
-		if (direction == UP)
+		if (direction_1 == UP)
 		{
 			return ERR;
 		}
 		return DOWN;
 	case KEY_RIGHT:
-		if (direction == LEFT)
+		if (direction_1 == LEFT)
 		{
 			return ERR;
 		}
 		return RIGHT;
 	case KEY_LEFT:
-		if (direction == RIGHT)
+		if (direction_1 == RIGHT)
 		{
 			return ERR;
 		}
@@ -1200,36 +1335,44 @@ Direction listenDirection(int key, Direction direction) {
 	}
 }
 
-void move(Direction direction) {
+void move() {
 	Snake *temp;
-	switch (direction)
+	switch (direction_1)
 	{
 	case LEFT:
-		tail->point.x = head->point.x - 1;
-		tail->point.y = head->point.y;
+		tail_1->point.x = head_1->point.x - 1;
+		tail_1->point.y = head_1->point.y;
 		break;
 	case RIGHT:
-		tail->point.x = head->point.x + 1;
-		tail->point.y = head->point.y;
+		tail_1->point.x = head_1->point.x + 1;
+		tail_1->point.y = head_1->point.y;
 		break;
 	case UP:
-		tail->point.x = head->point.x;
-		tail->point.y = head->point.y - 1;
+		tail_1->point.x = head_1->point.x;
+		tail_1->point.y = head_1->point.y - 1;
 		break;
 	case DOWN:
-		tail->point.x = head->point.x;
-		tail->point.y = head->point.y + 1;
+		tail_1->point.x = head_1->point.x;
+		tail_1->point.y = head_1->point.y + 1;
 		break;
 	default:
 		break;
 	}
-	temp = head;
-	head = tail;
-	tail = tail->previous;
-	temp->previous = head;
-	head->next = temp;
-	tail->next = NULL;
-	head->previous = NULL;
+	if (tail_1 == head_1)
+	{
+		head_1->next = NULL;
+		head_1->previous = NULL;
+	}
+	else {
+		temp = head_1;
+		head_1 = tail_1;
+		tail_1 = tail_1->previous;
+		temp->previous = head_1;
+		head_1->next = temp;
+		tail_1->next = NULL;
+		head_1->previous = NULL;
+	}
+	
 }
 
 void initMap() {
@@ -1251,6 +1394,7 @@ void paintMap() {
 	createPoiWeeds(x0, y0, dx, dy);
 	createLandmine(x0, y0, dx, dy);
 	createFood(x0, y0, dx, dy);
+	paintButtons();
 }
 
 void paintSnake(int x0, int y0, int dx, int dy) {
@@ -1278,7 +1422,7 @@ void paintSnake(int x0, int y0, int dx, int dy) {
 	}*/
 	IMAGE* cell;
 	Snake* snakeCell;
-	snakeCell = head;
+	snakeCell = head_1;
 	int x, y;
 	while (snakeCell != NULL)
 	{
@@ -1291,32 +1435,32 @@ void paintSnake(int x0, int y0, int dx, int dy) {
 }
 
 Snake* initSnake(int length) {
-	Snake*head;
-	head = (Snake*)malloc(sizeof(Snake)*length);
-	tail = &head[length - 1];
+	Snake*head_1;
+	head_1 = (Snake*)malloc(sizeof(Snake)*length);
+	tail_1 = &head_1[length - 1];
 	for (int i = 0; i < length; i++)
 	{
 		if (i < length - 1)
 		{
-			head[i].next = &head[i + 1];
-			head[i + 1].previous = &head[i];
+			head_1[i].next = &head_1[i + 1];
+			head_1[i + 1].previous = &head_1[i];
 		}
-		head[i].point.x = MAP_X / 2 + i;
-		head[i].point.y = MAP_Y / 2;
+		head_1[i].point.x = MAP_X / 2 + i;
+		head_1[i].point.y = MAP_Y / 2;
 	}
-	head->isHead = true;
-	tail->isTail = true;
-	tail->next = NULL;
-	head->previous = NULL;
-	return head;
+	head_1->isHead = true;
+	tail_1->isTail = true;
+	tail_1->next = NULL;
+	head_1->previous = NULL;
+	return head_1;
 }
 
 void updateMap() {
 	initMap();
-	Snake* temp = head;
+	Snake* temp = head_1;
 	int x, y;
 	while (temp != NULL) {
-		if (temp == head)
+		if (temp == head_1)
 		{
 			x = temp->point.x;
 			y = temp->point.y;

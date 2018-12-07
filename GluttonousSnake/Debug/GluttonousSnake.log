@@ -1,3 +1,4 @@
 ﻿  main.cpp
-c:\users\asus\desktop\gluttonoussnake\gluttonoussnake\main.cpp(162): warning C4244: “参数”: 从“time_t”转换到“unsigned int”，可能丢失数据
+c:\users\asus\desktop\gluttonoussnake\gluttonoussnake\main.cpp(181): warning C4244: “参数”: 从“time_t”转换到“unsigned int”，可能丢失数据
+c:\users\asus\desktop\gluttonoussnake\gluttonoussnake\main.cpp(211): warning C4102: “pause”: 未引用的标签
   GluttonousSnake.vcxproj -> C:\Users\asus\Desktop\GluttonousSnake\Debug\GluttonousSnake.exe
