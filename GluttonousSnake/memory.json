@@ -1,29 +1,30 @@
 {
-	"model":	0,
+	"model":	1,
 	"difficulty":	0,
-	"direction_1":	0,
+	"direction_1":	3,
+	"direction_2":	1,
 	"snakes":	{
 		"snake_1":	{
-			"snake_1_x":	[27, 27, 27, 27, 27],
-			"snake_1_y":	[5, 6, 7, 8, 9]
+			"snake_1_x":	[14, 15, 16, 17, 18, 19],
+			"snake_1_y":	[13, 13, 13, 13, 13, 13]
 		},
 		"snake_2":	{
-			"snake_2_x":	[],
-			"snake_2_y":	[]
+			"snake_2_x":	[15, 14, 13, 12, 11, 10, 9],
+			"snake_2_y":	[13, 13, 13, 13, 13, 13, 13]
 		}
 	},
 	"food":	{
-		"food_x":	[29, 10, 24, 12, 7, 21, 0, 1, 17, 11],
-		"food_y":	[3, 19, 28, 19, 26, 13, 17, 19, 1, 2],
-		"foodIndex":	[6, 11, 7, 4, 9, 0, 3, 3, 11, 1]
+		"food_x":	[13, 1, 27, 27, 10, 18, 28, 1, 8, 10],
+		"food_y":	[1, 21, 29, 22, 16, 25, 28, 16, 7, 18],
+		"foodIndex":	[6, 7, 3, 3, 2, 5, 1, 4, 10, 7]
 	},
 	"poi_weed":	{
 		"poi_weedOff":	0,
-		"poi_weed_x":	[14, 24],
-		"poi_weed_y":	[3, 23]
+		"poi_weed_x":	[17, 5],
+		"poi_weed_y":	[3, 1]
 	},
 	"landmine":	{
-		"landmine_x":	[0],
-		"landmine_y":	[8]
+		"landmine_x":	[22],
+		"landmine_y":	[20]
 	}
 }
