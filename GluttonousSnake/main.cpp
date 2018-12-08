@@ -3,6 +3,7 @@
 #include<stdlib.h>
 #include<stdio.h>
 #include<time.h>
+#include<math.h>
 #include"cJSON.h"
 
 #define true 1
@@ -55,7 +56,8 @@
 
 typedef enum {
 	single_Model,
-	double_Model
+	double_Model,
+	computer_Model
 }Model;
 typedef enum {
 	simple_Difficulty,
@@ -125,6 +127,9 @@ Bool isOver = false;
 Bool isWin;
 Bool isPause = false;
 Bool poi_weedOff = false;
+Bool autoMove_1 = false;
+Bool autoMove_2 = false;
+Bool isMainGUI = true;
 
 IMAGE startBackground;
 IMAGE readyImage;
@@ -140,6 +145,7 @@ IMAGE snake_1[5][4];
 IMAGE snake_2[5][4];
 IMAGE singleModel;
 IMAGE doubleModel;
+IMAGE computerModel;
 IMAGE choose;
 IMAGE settingBack;
 IMAGE simpleModel;
@@ -195,6 +201,11 @@ void paintButtons();
 void doContinueGame(Bool);
 void initSingleSnake(int);
 void initDoubleSnake(int, int);
+void getNextXY(Direction, Player, int*, int*);
+void getCurrentXY(Player, int*, int*);
+Direction autoGetDirection(Player, Model);
+void setIsMainGUI(Bool);
+void delay(int);
 
 int main() {
 	srand((unsigned int)time(0));
@@ -219,6 +230,7 @@ start:
 		goto startGame;
 	}
 startGame:
+	setIsMainGUI(false);
 	doContinueGame(doContinue);
 	switch (currentModel)
 	{
@@ -226,6 +238,9 @@ startGame:
 		gameStart_single();
 		break;
 	case double_Model:
+		gameStart_double();
+		break;
+	case computer_Model:
 		gameStart_double();
 		break;
 	}
@@ -238,6 +253,202 @@ difficultySetting:
 	goto start;
 	system("pause");
 	return 0;
+}
+
+void delay(int xms)
+{
+	int x, y;
+	for (x = xms; x > 0; x--)
+		for (y = 50000; y > 0; y--)
+			setIsMainGUI(false);
+	setIsMainGUI(true);
+}
+
+void setIsMainGUI(Bool flag) {
+	isMainGUI = flag;
+}
+
+Direction autoGetDirection(Player player, Model model) {
+	updateMap();
+	Direction currentDirection = ERR;
+	Direction directions[4] = { UP, RIGHT, DOWN, LEFT };
+	int body;
+	int head;
+	int numOfDirection = 4;
+	if (model == single_Model)
+	{
+		currentDirection = direction_1;
+		body = BODY_1;
+		head = -1;
+	}
+	else {
+		switch (player)
+		{
+		case P1:
+			currentDirection = direction_1;
+			body = BODY_2;
+			head = HEAD_2;
+			break;
+		case P2:
+			currentDirection = direction_2;
+			body = BODY_1;
+			head = HEAD_1;
+			break;
+		}
+	}
+	int x, y;
+	int x0, y0;
+	for (int i = 0; i < 4; i++)
+	{
+		if (abs(directions[i]-currentDirection) == 2)
+		{
+			directions[i] = ERR;
+			numOfDirection--;
+			continue;
+		}
+		
+		getNextXY(directions[i], player, &x, &y);
+		if (x<0 || x>MAP_X - 1 || y<0 || y>MAP_Y - 1) {
+			directions[i] = ERR;
+			numOfDirection--;
+			continue;
+		}
+		if (map[x][y] == body)
+		{
+			directions[i] = ERR;
+			numOfDirection--;
+			continue;
+		}
+		if (map[x][y] == head)
+		{
+			directions[i] = ERR;
+			numOfDirection--;
+			continue;
+		}
+	}
+
+	if (numOfDirection == 0)
+	{
+		return currentDirection;
+	}
+	if (numOfDirection == 1)
+	{
+		for (int i = 0; i < 4; i++) {
+			if (directions[i] != ERR)
+			{
+				return directions[i];
+			}
+		}
+	}
+
+	getCurrentXY(player, &x0, &y0);
+	int index;
+	int minD = INT_MAX;
+	int d;
+	for (int i = 0; i < numOfFood; i++)
+	{
+		d = pow((food_x[i] - x0), 2) + pow((food_y[i] - y0), 2);
+		if (d < minD)
+		{
+			minD = d;
+			index = i;
+		}
+	}
+
+	for (int i = 0; i < 4; i++)
+	{
+		if (directions[i] == ERR) {
+			continue;
+		}
+		getNextXY(directions[i], player, &x, &y);
+		if (map[x][y] == LANDMINE)
+		{
+			directions[i] = ERR;
+			numOfDirection--;
+			if (numOfDirection == 1)
+			{
+				for (int i = 0; i < 4; i++) {
+					if (directions[i] != ERR)
+					{
+						return directions[i];
+					}
+				}
+			}
+			continue;
+		}
+		if (map[x][y] == POI_WEED)
+		{
+			directions[i] = ERR;
+			numOfDirection--;
+			if (numOfDirection == 1)
+			{
+				for (int i = 0; i < 4; i++) {
+					if (directions[i] != ERR)
+					{
+						return directions[i];
+					}
+				}
+			}
+			continue;
+		}
+		d = pow((food_x[index] - x), 2) + pow((food_y[index] - y), 2);
+		if (d < minD)
+		{
+			return directions[i];
+		}
+	}
+	int r = rand() % 4;
+	while (directions[r] == ERR) {
+		r = rand() % 4;
+	}
+	return directions[r];
+}
+
+void getNextXY(Direction direction, Player player, int*x, int*y) {
+	Snake *head = NULL;
+	switch (player)
+	{
+	case P1:
+		head = head_1;
+		break;
+	case P2:
+		head = head_2;
+		break;
+	}
+	switch (direction)
+	{
+	case UP:
+		*x = head->point.x;
+		*y = head->point.y - 1;
+		break;
+	case RIGHT:
+		*x = head->point.x + 1;
+		*y = head->point.y;
+		break;
+	case DOWN:
+		*x = head->point.x;
+		*y = head->point.y + 1;
+		break;
+	case LEFT:
+		*x = head->point.x - 1;
+		*y = head->point.y;
+		break;
+	}
+}
+
+void getCurrentXY(Player player, int*x, int*y) {
+	Snake *head = NULL;
+	switch (player)
+	{
+	case P1:
+		head = head_1;
+		break;
+	case P2:
+		head = head_2;
+		break;
+	}
+	*x = head->point.x;
+	*y = head->point.y;
 }
 
 void initSingleSnake(int snakeLength_1) {
@@ -309,6 +520,8 @@ void initParameter() {
 	doContinue = false;
 	isOver = false;
 	snakeLength_1 = SNAKE_INIT_LENGTH;
+	snakeLength_2 = SNAKE_INIT_LENGTH;
+	isPause = false;
 	poi_weedOff = false;
 	
 	switch (currentDifficulty)
@@ -336,11 +549,21 @@ void initParameter() {
 	{
 	case single_Model:
 		direction_1 = LEFT;
+		autoMove_1 = true;
 		initSingleSnake(SNAKE_INIT_LENGTH);
 		break;
 	case double_Model:
 		direction_1 = UP;
 		direction_2 = UP;
+		autoMove_1 = true;
+		autoMove_2 = true;
+		initDoubleSnake(SNAKE_INIT_LENGTH, SNAKE_INIT_LENGTH);
+		break;
+	case computer_Model:
+		direction_1 = UP;
+		direction_2 = UP;
+		autoMove_1 = false;
+		autoMove_2 = true;
 		initDoubleSnake(SNAKE_INIT_LENGTH, SNAKE_INIT_LENGTH);
 		break;
 	}
@@ -356,7 +579,8 @@ void paintGameOver(Bool isWin) {
 		img = &singleLoss;
 	}
 	putimage(0, 200, img);
-	Sleep(5000);
+	//Sleep(5000);
+	delay(5000);
 }
 
 void paintWinner(Player player) {
@@ -374,7 +598,8 @@ void paintWinner(Player player) {
 		break;
 	}
 	putimage(0, 200, img);
-	Sleep(5000);
+	//Sleep(5000);
+	delay(5000);
 }
 
 Bool readFile() {
@@ -433,7 +658,7 @@ Bool readFile() {
 			snakeTemp = snakeTemp->next;
 		}
 
-		if (model == double_Model)
+		if (model == double_Model || model == computer_Model)
 		{
 			int snakeSize_2 = cJSON_GetArraySize(snake_2_x_arr);
 			initSnake(snakeSize_2, P2);
@@ -447,6 +672,21 @@ Bool readFile() {
 				snakeTemp->point.y = temp_y;
 				snakeTemp = snakeTemp->next;
 			}
+		}
+
+		if (model == double_Model)
+		{
+			autoMove_1 = false;
+			autoMove_2 = false;
+		}
+		else if (model == single_Model)
+		{
+			autoMove_1 = false;
+		}
+		else if (model == computer_Model)
+		{
+			autoMove_1 = false;
+			autoMove_2 = true;
 		}
 
 		int foodSize = cJSON_GetArraySize(food_x_arr);
@@ -495,6 +735,7 @@ Bool readFile() {
 		hasFood = true;
 		hasPoiWeeds = true;
 		hasLandmine = true;
+		isPause = false;
 
 		currentModel = model;
 		currentDifficulty = difficulty;
@@ -787,7 +1028,7 @@ Operation startMouseListening() {
 	MOUSEMSG msg;
 	int x, y;
 	while (true) {
-		if (MouseHit())
+		if (MouseHit() && isMainGUI)
 		{
 			msg = GetMouseMsg();
 			x = msg.x;
@@ -901,17 +1142,21 @@ void paintModelSetting() {
 	switch (currentModel)
 	{
 	case single_Model:
-		choose_y = 140;
+		choose_y = 120;
 		break;
 	case double_Model:
-		choose_y = 265;
+		choose_y = 220;
+		break;
+	case computer_Model:
+		choose_y = 320;
 		break;
 	}
 startPaint:
 	putimage(0, 0, &settingBackground);
-	putimage(300, 150, &singleModel);
-	putimage(300, 275, &doubleModel);
-	putimage(300, 400, &settingBack);
+	putimage(300, 130, &singleModel);
+	putimage(300, 230, &doubleModel);
+	putimage(300, 330, &computerModel);
+	putimage(300, 430, &settingBack);
 	putimage(520, choose_y, &choose);
 	MOUSEMSG msg;
 	int x, y;
@@ -924,21 +1169,28 @@ startPaint:
 			switch (msg.uMsg)
 			{
 			case WM_LBUTTONDOWN:
-				if (x > 300 && x < 500 && y>150 && y < 210)
+				if (x > 300 && x < 500 && y>130 && y < 190)
 				{
 					//single model
-					choose_y = 140;
+					choose_y = 120;
 					currentModel = single_Model;
 					goto startPaint;
 				}
-				else if (x > 300 && x < 500 && y > 275 && y < 335)
+				else if (x > 300 && x < 500 && y > 230 && y < 290)
 				{
 					//double model
-					choose_y = 265;
+					choose_y = 220;
 					currentModel = double_Model;
 					goto startPaint;
 				}
-				else if (x > 300 && x < 500 && y > 400 && y < 460)
+				else if (x > 300 && x < 500 && y > 330 && y < 390)
+				{
+					//computer model
+					choose_y = 320;
+					currentModel = computer_Model;
+					goto startPaint;
+				}
+				else if (x > 300 && x < 500 && y > 430 && y < 490)
 				{
 					goto done;
 				}
@@ -959,6 +1211,7 @@ void loadAllImages() {
 	loadimage(&settingBack, "images/buttons/b_settingBack.png", 200, 60);
 	loadimage(&singleModel, "images/buttons/b_single.png", 200, 60);
 	loadimage(&doubleModel, "images/buttons/b_double.png", 200, 60);
+	loadimage(&computerModel, "images/buttons/b_computer.png", 200, 60);
 	loadimage(&simpleModel, "images/buttons/b_simple.png", 200, 60);
 	loadimage(&difficultModel, "images/buttons/b_difficult.png", 200, 60);
 	loadimage(&impossibleModel, "images/buttons/b_impossible.png", 200, 60);
@@ -1087,6 +1340,7 @@ void gameStart_single() {
 				}
 				else if (x > 635 && x < 785 && y > 550 && y < 600)
 				{
+					setIsMainGUI(true);
 					goto start;
 				}
 			}
@@ -1098,7 +1352,7 @@ void gameStart_single() {
 			case ' ':
 				isPause = !isPause;
 			}
-			if (!keyUsed_1)
+			if (!keyUsed_1 && !autoMove_1)
 			{
 				d_temp = listenDirection(keyASC, P1);
 				if (d_temp != ERR)
@@ -1130,7 +1384,12 @@ void gameStart_single() {
 		{
 			poi_times = 0;
 			writeFile();
+			if (autoMove_1)
+			{
+				direction_1 = autoGetDirection(P1, single_Model);
+			}
 		}
+		
 		if (eatFood(P1))
 		{
 			growUp(P1);
@@ -1186,6 +1445,9 @@ void gameStart_double() {
 	int poi_times = 0;
 	Bool start = false;
 	Player winner = none;
+	int nextX_1, nextY_1;
+	int nextX_2, nextY_2;
+
 	putimage(0, 200, &readyImage);
 	Sleep(2000);
 	cleardevice();
@@ -1221,6 +1483,7 @@ void gameStart_double() {
 				}
 				else if (x > 635 && x < 785 && y > 550 && y < 600)
 				{
+					setIsMainGUI(true);
 					goto start;
 				}
 			}
@@ -1232,7 +1495,7 @@ void gameStart_double() {
 			case ' ':
 				isPause = !isPause;
 			}
-			if (!keyUsed_1)
+			if (!keyUsed_1 && !autoMove_1)
 			{
 				d_temp_1 = listenDirection(keyASC, P1);
 				if (d_temp_1 != ERR)
@@ -1241,7 +1504,7 @@ void gameStart_double() {
 					keyUsed_1 = true;
 				}
 			}
-			if (!keyUsed_2)
+			if (!keyUsed_2 && !autoMove_2)
 			{
 				d_temp_2 = listenDirection(keyASC, P2);
 				if (d_temp_2 != ERR)
@@ -1273,6 +1536,67 @@ void gameStart_double() {
 		{
 			poi_times = 0;
 			writeFile();
+			if (autoMove_1)
+			{
+				direction_1 = autoGetDirection(P1, double_Model);
+			}
+			if (autoMove_2)
+			{
+				direction_2 = autoGetDirection(P2, double_Model);
+			}
+		}
+
+		getNextXY(direction_1, P1, &nextX_1, &nextY_1);
+		getNextXY(direction_2, P2, &nextX_2, &nextY_2);
+
+		if (map[nextX_1][nextY_1] == BODY_2 && map[nextX_2][nextY_2] == BODY_1)
+		{
+			isOver = true;
+			if (snakeLength_1 > snakeLength_2)
+			{
+				winner = P1;
+			}
+			else if (snakeLength_1 < snakeLength_2)
+			{
+				winner = P2;
+			}
+			else
+			{
+				winner = none;
+			}
+		}
+		else if (map[nextX_1][nextY_1] == BODY_2)
+		{
+			isOver = true;
+			winner = P2;
+		}
+		else if (map[nextX_2][nextY_2] == BODY_1)
+		{
+			isOver = true;
+			winner = P1;
+		}
+		else if (map[nextX_1][nextY_1] == HEAD_2 || map[nextX_2][nextY_2] == HEAD_1)
+		{
+			if (snakeLength_1 > snakeLength_2)
+			{
+				isOver = true;
+				winner = P1;
+			}
+			else if (snakeLength_1 < snakeLength_2)
+			{
+				isOver = true;
+				winner = P2;
+			}
+			else
+			{
+				isOver = true;
+				winner = none;
+			}
+		}
+
+		if (isOver)
+		{
+			break;
 		}
 
 		if (eatFood(P1))
@@ -1363,7 +1687,7 @@ void gameStart_double() {
 			winner = P2;
 		}
 		
-		if (map[head_2->point.x][head_2->point.y] == BODY_1)
+		/*if (map[head_2->point.x][head_2->point.y] == BODY_1)
 		{
 			isOver = true;
 			if (winner == P2)
@@ -1384,23 +1708,21 @@ void gameStart_double() {
 			else {
 				winner = P1;
 			}
-		}
+		}*/
 		
 		if (head_1->point.x == head_2->point.x && head_1->point.y == head_2->point.y)
 		{
+			isOver = true;
 			if (snakeLength_1 > snakeLength_2)
 			{
-				isOver = true;
 				winner = P1;
 			}
 			else if (snakeLength_1 < snakeLength_2)
 			{
-				isOver = true;
 				winner = P2;
 			}
 			else
 			{
-				isOver = true;
 				winner = none;
 			}
 		}
@@ -1408,7 +1730,18 @@ void gameStart_double() {
 		if (outOfBoundary(P2) && outOfBoundary(P1))
 		{
 			isOver = true;
-			winner = none;
+			if (snakeLength_1 > snakeLength_2)
+			{
+				winner = P1;
+			}
+			else if (snakeLength_1 < snakeLength_2)
+			{
+				winner = P2;
+			}
+			else
+			{
+				winner = none;
+			}
 		}
 		else if (outOfBoundary(P1))
 		{
@@ -2050,7 +2383,7 @@ void paintMap() {
 	setcolor(BLUE);
 	//rectangle(10, 10, 10 + 30 * DX, 10 + 30 * DY);
 	paintSnake(x0, y0, dx, dy, P1);
-	if (currentModel == double_Model)
+	if (currentModel == double_Model || currentModel == computer_Model)
 	{
 		paintSnake(x0, y0, dx, dy, P2);
 	}
@@ -2066,10 +2399,12 @@ void paintSnake(int x0, int y0, int dx, int dy, Player player) {
 	switch (player)
 	{
 	case P1:
-		snakeCell = head_1;
+		snakeCell = tail_1;
+		head_1->previous = NULL;
 		break;
 	case P2:
-		snakeCell = head_2;
+		snakeCell = tail_2;
+		head_2->previous = NULL;
 		break;
 	}
 	int x, y;
@@ -2079,7 +2414,7 @@ void paintSnake(int x0, int y0, int dx, int dy, Player player) {
 		x = snakeCell->point.x;
 		y = snakeCell->point.y;
 		putimage(x0 + dx * x, y0 + dy * y, cell);
-		snakeCell = snakeCell->next;
+		snakeCell = snakeCell->previous;
 	}
 }
 
@@ -2136,7 +2471,7 @@ void updateMap() {
 		temp = temp->next;
 	}
 
-	if (currentModel == double_Model)
+	if (currentModel == double_Model || currentModel == computer_Model)
 	{
 		temp = head_2;
 		while (temp != NULL) {
