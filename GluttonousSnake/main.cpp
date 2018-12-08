@@ -33,6 +33,7 @@
 #define FOOD 5
 #define POI_WEED 6
 #define LANDMINE 7
+#define BRAIN 8
 #define SLEEP_TIME_SIMPLE 150
 #define SLEEP_TIME_DIFFICULT 100
 #define SLEEP_TIME_IMPOSSIBLE 50
@@ -42,15 +43,20 @@
 #define NUM_OF_LANDMINE_SIMPLE 1
 #define NUM_OF_LANDMINE_DIFFICULT 3
 #define NUM_OF_LANDMINE_IMPOSSIBLE 7
+#define NUM_OF_BRAIN_SIMPLE 3
+#define NUM_OF_BRAIN_DIFFICULT 2
+#define NUM_OF_BRAIN_IMPOSSIBLE 1
 #define NUM_OF_FOODS_SIMPLE 10
 #define NUM_OF_FOODS_DIFFICULT 5
 #define NUM_OF_FOODS_IMPOSSIBLE 1
-#define SCORE_SIMPLE 200
-#define SCORE_DIFFICULT 300
-#define SCORE_IMPOSSIBLE 400
+#define SCORE_SIMPLE 300
+#define SCORE_DIFFICULT 500
+#define SCORE_IMPOSSIBLE 700
 #define FLASH_FREQ 3
 #define POI_WEEDS_TIME 5000
+#define BRAIN_TIME 8000
 #define KINDS_OF_FOODS 12
+#define BRAIN_MAINTAIN_TIME 10000
 
 #pragma warning(disable:4996)
 
@@ -99,6 +105,7 @@ typedef struct snake {
 int sleepTime = SLEEP_TIME_SIMPLE;
 int numOfPoiWeeds = NUM_OF_POI_WEEDS_SIMPLE;
 int numOfLandmine = NUM_OF_LANDMINE_SIMPLE;
+int numOfBrain = NUM_OF_BRAIN_SIMPLE;
 int numOfFood = NUM_OF_FOODS_SIMPLE;
 int food_x[NUM_OF_FOODS_SIMPLE];
 int food_y[NUM_OF_FOODS_SIMPLE];
@@ -106,6 +113,8 @@ int poiWeeds_x[NUM_OF_POI_WEEDS_IMPOSSIBLE];
 int poiWeeds_y[NUM_OF_POI_WEEDS_IMPOSSIBLE];
 int landmine_x[NUM_OF_LANDMINE_IMPOSSIBLE];
 int landmine_y[NUM_OF_LANDMINE_IMPOSSIBLE];
+int brain_x[NUM_OF_BRAIN_SIMPLE];
+int brain_y[NUM_OF_BRAIN_SIMPLE];
 int snakeLength_1 = SNAKE_INIT_LENGTH;
 int snakeLength_2 = SNAKE_INIT_LENGTH;
 int foodIndex[NUM_OF_FOODS_SIMPLE];
@@ -120,6 +129,7 @@ Bool paintPoiWeeds = false;
 Bool hasFood = false;
 Bool hasPoiWeeds = false;
 Bool hasLandmine = false;
+Bool hasBrain = false;
 Bool keyUsed_1 = false;
 Bool keyUsed_2 = false;
 Bool doContinue = false;
@@ -127,6 +137,7 @@ Bool isOver = false;
 Bool isWin;
 Bool isPause = false;
 Bool poi_weedOff = false;
+Bool brainOff = false;
 Bool autoMove_1 = false;
 Bool autoMove_2 = false;
 Bool isMainGUI = true;
@@ -141,8 +152,10 @@ IMAGE b_modelSetting;
 IMAGE foods[12];
 IMAGE poiWeed;
 IMAGE landmine;
+IMAGE brain;
 IMAGE snake_1[5][4];
 IMAGE snake_2[5][4];
+IMAGE snakeBrain[4];
 IMAGE singleModel;
 IMAGE doubleModel;
 IMAGE computerModel;
@@ -167,8 +180,8 @@ Direction direction_1;
 Direction direction_2;
 
 void initMap();
-void paintSnake(int, int, int, int, Player);
-void paintMap();
+void paintSnake(int, int, int, int, Player, Bool);
+void paintMap(Bool, Bool);
 void initSnake(int, Player);
 void updateMap();
 void move(Player);
@@ -183,15 +196,18 @@ Bool eatPoiWeed(Player);
 void createLandmine(int, int, int, int);
 void reduceHalf(Player);
 Bool eatLandmine(Player);
+void createBrain(int, int, int, int);
+Bool eatBrain(Player);
 Bool outOfBoundary(Player);
 void gameStart_single();
 void gameStart_double();
 void loadAllImages();
 Operation startMouseListening();
-IMAGE* getSnakeImage(Snake*, Player);
+IMAGE* getSnakeImage(Snake*, Player, Bool);
 void paintModelSetting();
 void paintDifficultySetting();
-void paintScore(int score);
+void paintSingleScore(int score);
+void paintDoubleScore(int score_1, int score_2);
 void writeFile();
 Bool readFile();
 void paintGameOver(Bool);
@@ -347,7 +363,7 @@ Direction autoGetDirection(Player player, Model model) {
 	int d;
 	for (int i = 0; i < numOfFood; i++)
 	{
-		d = pow((food_x[i] - x0), 2) + pow((food_y[i] - y0), 2);
+		d = (int)(pow((food_x[i] - x0), 2) + pow((food_y[i] - y0), 2));
 		if (d < minD)
 		{
 			minD = d;
@@ -391,7 +407,7 @@ Direction autoGetDirection(Player player, Model model) {
 			}
 			continue;
 		}
-		d = pow((food_x[index] - x), 2) + pow((food_y[index] - y), 2);
+		d = (int)(pow((food_x[index] - x), 2) + pow((food_y[index] - y), 2));
 		if (d < minD)
 		{
 			return directions[i];
@@ -515,6 +531,7 @@ void initParameter() {
 	hasFood = false;
 	hasPoiWeeds = false;
 	hasLandmine = false;
+	hasBrain = false;
 	keyUsed_1 = false;
 	keyUsed_2 = false;
 	doContinue = false;
@@ -523,6 +540,8 @@ void initParameter() {
 	snakeLength_2 = SNAKE_INIT_LENGTH;
 	isPause = false;
 	poi_weedOff = false;
+	brainOff = false;
+
 	
 	switch (currentDifficulty)
 	{
@@ -549,14 +568,14 @@ void initParameter() {
 	{
 	case single_Model:
 		direction_1 = LEFT;
-		autoMove_1 = true;
+		autoMove_1 = false;
 		initSingleSnake(SNAKE_INIT_LENGTH);
 		break;
 	case double_Model:
 		direction_1 = UP;
 		direction_2 = UP;
-		autoMove_1 = true;
-		autoMove_2 = true;
+		autoMove_1 = false;
+		autoMove_2 = false;
 		initDoubleSnake(SNAKE_INIT_LENGTH, SNAKE_INIT_LENGTH);
 		break;
 	case computer_Model:
@@ -610,12 +629,19 @@ Bool readFile() {
 		char *sp = fileStr;
 		char temp;
 		temp = fgetc(fp);
+		int i = 0;
 		while (temp != EOF) {
 			*sp = temp;
 			sp++;
 			temp = fgetc(fp);
+			i++;
 		}
 		*sp = '\0';
+
+		if (i < 10)
+		{
+			return false;
+		}
 
 		cJSON *memory = cJSON_Parse(fileStr);
 		cJSON *snakes = cJSON_GetObjectItem(memory, "snakes");
@@ -628,6 +654,7 @@ Bool readFile() {
 		cJSON *food = cJSON_GetObjectItem(memory, "food");
 		cJSON *poi_weed = cJSON_GetObjectItem(memory, "poi_weed");
 		cJSON *landmine = cJSON_GetObjectItem(memory, "landmine");
+		cJSON *brain = cJSON_GetObjectItem(memory, "brain");
 		cJSON *food_x_arr = cJSON_GetObjectItem(food, "food_x");
 		cJSON *food_y_arr = cJSON_GetObjectItem(food, "food_y");
 		cJSON *foodIndex_arr = cJSON_GetObjectItem(food, "foodIndex");
@@ -635,12 +662,15 @@ Bool readFile() {
 		cJSON *poi_weed_y_arr = cJSON_GetObjectItem(poi_weed, "poi_weed_y");
 		cJSON *landmine_x_arr = cJSON_GetObjectItem(landmine, "landmine_x");
 		cJSON *landmine_y_arr = cJSON_GetObjectItem(landmine, "landmine_y");
+		cJSON *brain_x_arr = cJSON_GetObjectItem(brain, "brain_x");
+		cJSON *brain_y_arr = cJSON_GetObjectItem(brain, "brain_y");
 		
 		Model model = (Model)atoi(cJSON_Print(cJSON_GetObjectItem(memory, "model")));
 		Difficulty difficulty = (Difficulty)atoi(cJSON_Print(cJSON_GetObjectItem(memory, "difficulty")));
 		
 		direction_1 = (Direction)atoi(cJSON_Print(cJSON_GetObjectItem(memory, "direction_1")));
 		poi_weedOff = (Bool)atoi(cJSON_Print(cJSON_GetObjectItem(poi_weed, "poi_weedOff")));
+		brainOff = (Bool)atoi(cJSON_Print(cJSON_GetObjectItem(brain, "brainOff")));
 
 		int temp_x, temp_y;
 		int snakeSize_1 = cJSON_GetArraySize(snake_1_x_arr);
@@ -672,6 +702,7 @@ Bool readFile() {
 				snakeTemp->point.y = temp_y;
 				snakeTemp = snakeTemp->next;
 			}
+			snakeLength_2 = snakeSize_2;
 		}
 
 		if (model == double_Model)
@@ -731,10 +762,24 @@ Bool readFile() {
 			}
 		}
 
+		int brainSize = cJSON_GetArraySize(brain_x_arr);
+		for (int i = 0; i < NUM_OF_BRAIN_SIMPLE; i++)
+		{
+			if (i < brainSize) {
+				brain_x[i] = atoi(cJSON_Print(cJSON_GetArrayItem(brain_x_arr, i)));
+				brain_y[i] = atoi(cJSON_Print(cJSON_GetArrayItem(brain_y_arr, i)));
+			}
+			else {
+				brain_x[i] = -2;
+				brain_y[i] = -2;
+			}
+		}
+
 		paintPoiWeeds = true;
 		hasFood = true;
 		hasPoiWeeds = true;
 		hasLandmine = true;
+		hasBrain = true;
 		isPause = false;
 
 		currentModel = model;
@@ -792,6 +837,7 @@ void writeFile() {
 	cJSON *food = cJSON_CreateObject();
 	cJSON *poi_weed = cJSON_CreateObject();
 	cJSON *landmine = cJSON_CreateObject();
+	cJSON *brain = cJSON_CreateObject();
 	cJSON *food_x_arr = cJSON_CreateArray();
 	cJSON *food_y_arr = cJSON_CreateArray();
 	cJSON *foodIndex_arr = cJSON_CreateArray();
@@ -799,10 +845,13 @@ void writeFile() {
 	cJSON *poi_weed_y_arr = cJSON_CreateArray();
 	cJSON *landmine_x_arr = cJSON_CreateArray();
 	cJSON *landmine_y_arr = cJSON_CreateArray();
+	cJSON *brain_x_arr = cJSON_CreateArray();
+	cJSON *brain_y_arr = cJSON_CreateArray();
 
 	cJSON_AddNumberToObject(memory, "model", currentModel);
 	cJSON_AddNumberToObject(memory, "difficulty", currentDifficulty);
 	cJSON_AddNumberToObject(poi_weed, "poi_weedOff", poi_weedOff);
+	cJSON_AddNumberToObject(brain, "brainOff", brainOff);
 	cJSON_AddNumberToObject(memory, "direction_1", direction_1);
 	cJSON_AddNumberToObject(memory, "direction_2", direction_2);
 	cJSON_AddItemToObject(memory, "snakes", snakes);
@@ -822,6 +871,9 @@ void writeFile() {
 	cJSON_AddItemToObject(memory, "landmine", landmine);
 	cJSON_AddItemToObject(landmine, "landmine_x", landmine_x_arr);
 	cJSON_AddItemToObject(landmine, "landmine_y", landmine_y_arr);
+	cJSON_AddItemToObject(memory, "brain", brain);
+	cJSON_AddItemToObject(brain, "brain_x", brain_x_arr);
+	cJSON_AddItemToObject(brain, "brain_y", brain_y_arr);
 
 	Snake *temp;
 	temp = head_1;
@@ -857,6 +909,12 @@ void writeFile() {
 		cJSON_AddItemToArray(landmine_y_arr, cJSON_CreateNumber(landmine_y[i]));
 	}
 
+	for (int i = 0; i < numOfBrain; i++)
+	{
+		cJSON_AddItemToArray(brain_x_arr, cJSON_CreateNumber(brain_x[i]));
+		cJSON_AddItemToArray(brain_y_arr, cJSON_CreateNumber(brain_y[i]));
+	}
+
 	fp = fopen("memory.json", "w");
 	fputs(cJSON_Print(memory), fp);
 	fclose(fp);
@@ -864,7 +922,7 @@ void writeFile() {
 	cJSON_Delete(memory);
 }
 
-void paintScore(int score) {
+void paintSingleScore(int score) {
 	char scoreStr[5];
 	char destinationStr[5];
 	itoa(scoreThresholdValue, destinationStr, 10);
@@ -882,7 +940,23 @@ void paintScore(int score) {
 	outtextxy(690, 130, scoreStr);
 }
 
-IMAGE* getSnakeImage(Snake* snakeBody, Player player) {
+void paintDoubleScore(int score_1, int score_2) {
+	char scoreStr_1[5];
+	char scoreStr_2[5];
+	itoa(score_1, scoreStr_1, 10);
+	itoa(score_2, scoreStr_2, 10);
+	setbkmode(TRANSPARENT);
+	settextcolor(BROWN);
+	settextstyle(50, 0, "隶书");
+	outtextxy(650, 50, "P1得分");
+	outtextxy(650, 250, "P2得分");
+	settextcolor(RED);
+	settextstyle(40, 0, "幼圆");
+	outtextxy(690, 130, scoreStr_1);
+	outtextxy(690, 330, scoreStr_1);
+}
+
+IMAGE* getSnakeImage(Snake* snakeBody, Player player, Bool hasBrain) {
 	IMAGE(*snakeArr)[4] = NULL;
 	switch (player)
 	{
@@ -897,12 +971,28 @@ IMAGE* getSnakeImage(Snake* snakeBody, Player player) {
 	{
 		switch (direction_1) {
 		case UP:
+			if (hasBrain)
+			{
+				return &snakeBrain[0];
+			}
 			return &snakeArr[0][0];
 		case RIGHT:
+			if (hasBrain)
+			{
+				return &snakeBrain[1];
+			}
 			return &snakeArr[0][1];
 		case DOWN:
+			if (hasBrain)
+			{
+				return &snakeBrain[2];
+			}
 			return &snakeArr[0][2];
 		case LEFT:
+			if (hasBrain)
+			{
+				return &snakeBrain[3];
+			}
 			return &snakeArr[0][3];
 		}
 	}
@@ -917,6 +1007,26 @@ IMAGE* getSnakeImage(Snake* snakeBody, Player player) {
 
 		nx = snakeBody->next->point.x;
 		ny = snakeBody->next->point.y;
+		if (hasBrain)
+		{
+			if (x == nx && y == ny - 1)
+			{
+				return &snakeBrain[0];
+			}
+			else if (x == nx + 1 && y == ny)
+			{
+				return &snakeBrain[1];
+			}
+			else if (x == nx && y == ny + 1)
+			{
+				return &snakeBrain[2];
+			}
+			else if (x == nx - 1 && y == ny)
+			{
+				return &snakeBrain[3];
+			}
+			return NULL;
+		}
 
 		if (x == nx && y == ny - 1)
 		{
@@ -1216,6 +1326,7 @@ void loadAllImages() {
 	loadimage(&difficultModel, "images/buttons/b_difficult.png", 200, 60);
 	loadimage(&impossibleModel, "images/buttons/b_impossible.png", 200, 60);
 	loadimage(&choose, "images/buttons/choose.png", 70, 70);
+	loadimage(&brain, "images/foods/brain.png");
 	loadimage(&poiWeed, "images/foods/poi_weed.png");
 	loadimage(&landmine, "images/foods/landmine.png");
 	loadimage(foods, "images/foods/food_1.png");
@@ -1237,6 +1348,10 @@ void loadAllImages() {
 	loadimage(&allWin, "images/background/double_all_win.png");
 	loadimage(&b_menu, "images/buttons/b_menu.png");
 	loadimage(&b_pause, "images/buttons/b_pause.png");
+	loadimage(&snakeBrain[0], "images/snake/head_up_brain.png");
+	loadimage(&snakeBrain[1], "images/snake/head_right_brain.png");
+	loadimage(&snakeBrain[2], "images/snake/head_down_brain.png");
+	loadimage(&snakeBrain[3], "images/snake/head_left_brain.png");
 
 	//up right down left
 	//snake_1 init
@@ -1302,21 +1417,23 @@ void gameStart_single() {
 	Direction d_temp;
 	int keyASC;
 	int poi_times = 0;
+	int brainTime = 0;
+	int autoTime = 0;
 	Bool start = false;
+	Bool hasBrain_1 = false;
 	putimage(0, 200, &readyImage);
 	Sleep(2000);
 	cleardevice();
 	while (true)
 	{
-		
 		paintPoiWeeds = !paintPoiWeeds;
 		keyUsed_1 = false;
 		cleardevice();
 		putimage(0, 0, &gameBackground);
 		updateMap();
-		paintMap();
+		paintMap(hasBrain_1, false);
 		score = 10 * (snakeLength_1 - SNAKE_INIT_LENGTH);
-		paintScore(score);
+		paintSingleScore(score);
 		if (!start)
 		{
 			putimage(0, 200, &readyImage);
@@ -1377,6 +1494,17 @@ void gameStart_single() {
 					hasPoiWeeds = false;
 					poi_weedOff = !poi_weedOff;
 				}
+
+				if (brainTime <= BRAIN_TIME)
+				{
+					brainTime += (int)(sleepTime / FLASH_FREQ);
+				}
+				else
+				{
+					brainTime = 0;
+					hasBrain = false;
+					brainOff = !brainOff;
+				}
 			}
 			continue;
 		}
@@ -1384,6 +1512,16 @@ void gameStart_single() {
 		{
 			poi_times = 0;
 			writeFile();
+			if (autoTime > 0)
+			{
+				autoMove_1 = true;
+				hasBrain_1 = true;
+				autoTime -= sleepTime;
+			}
+			else {
+				autoMove_1 = false;
+				hasBrain_1 = false;
+			}
 			if (autoMove_1)
 			{
 				direction_1 = autoGetDirection(P1, single_Model);
@@ -1418,6 +1556,10 @@ void gameStart_single() {
 				move(P1);
 			}
 		}
+		else if (eatBrain(P1)) {
+			autoTime = BRAIN_MAINTAIN_TIME;
+			move(P1);
+		}
 		else
 		{
 			move(P1);
@@ -1439,7 +1581,10 @@ start:;
 }
 
 void gameStart_double() {
+	int score_1 = 0, score_2 = 0;
 	int poiWeedsTime = 0;
+	int brainTime = 0;
+	int autoTime_1 = 0, autoTime_2 = 0;
 	Direction d_temp_1, d_temp_2;
 	int keyASC;
 	int poi_times = 0;
@@ -1447,19 +1592,23 @@ void gameStart_double() {
 	Player winner = none;
 	int nextX_1, nextY_1;
 	int nextX_2, nextY_2;
-
+	Bool hasBrain_1 = false, hasBrain_2 = false;
 	putimage(0, 200, &readyImage);
 	Sleep(2000);
 	cleardevice();
 	while (true)
 	{
+		score_1 = 10 * (snakeLength_1 - SNAKE_INIT_LENGTH);
+		score_2 = 10 * (snakeLength_2 - SNAKE_INIT_LENGTH);
+		
 		paintPoiWeeds = !paintPoiWeeds;
 		keyUsed_1 = false;
 		keyUsed_2 = false;
 		cleardevice();
 		putimage(0, 0, &gameBackground);
 		updateMap();
-		paintMap();
+		paintMap(hasBrain_1, hasBrain_2);
+		paintDoubleScore(score_1, score_2);
 		if (!start)
 		{
 			putimage(0, 200, &readyImage);
@@ -1529,6 +1678,17 @@ void gameStart_double() {
 					hasPoiWeeds = false;
 					poi_weedOff = !poi_weedOff;
 				}
+
+				if (brainTime <= BRAIN_TIME)
+				{
+					brainTime += (int)(sleepTime / FLASH_FREQ);
+				}
+				else
+				{
+					brainTime = 0;
+					hasBrain = false;
+					brainOff = !brainOff;
+				}
 			}
 			continue;
 		}
@@ -1536,6 +1696,34 @@ void gameStart_double() {
 		{
 			poi_times = 0;
 			writeFile();
+			if (autoTime_1 > 0)
+			{
+				autoMove_1 = true;
+				hasBrain_1 = true;
+				autoTime_1 -= sleepTime;
+			}
+			else {
+				autoMove_1 = false;
+				hasBrain_1 = false;
+			}
+			
+			if (currentModel == computer_Model)
+			{
+				autoMove_2 = true;
+			}
+			else
+			{
+				if (autoTime_2 > 0)
+				{
+					autoMove_2 = true;
+					hasBrain_2 = true;
+					autoTime_2 -= sleepTime;
+				}
+				else {
+					autoMove_2 = false;
+					hasBrain_2 = false;
+				}
+			}
 			if (autoMove_1)
 			{
 				direction_1 = autoGetDirection(P1, double_Model);
@@ -1629,6 +1817,10 @@ void gameStart_double() {
 				move(P1);
 			}
 		}
+		else if (eatBrain(P1)) {
+			autoTime_1 = BRAIN_MAINTAIN_TIME;
+			move(P1);
+		}
 		else
 		{
 			move(P1);
@@ -1675,6 +1867,10 @@ void gameStart_double() {
 				snakeLength_2 = snakeLength_2 - snakeLength_2 / 2;
 				move(P2);
 			}
+		}
+		else if (eatBrain(P2)) {
+			autoTime_2 = BRAIN_MAINTAIN_TIME;
+			move(P2);
 		}
 		else
 		{
@@ -1851,6 +2047,75 @@ Bool eatLandmine(Player player) {
 	}
 }
 
+Bool eatBrain(Player player) {
+	if (brainOff)
+	{
+		return false;
+	}
+	Snake *head = NULL;
+	Direction direction = ERR;
+	switch (player)
+	{
+	case P1:
+		head = head_1;
+		direction = direction_1;
+		break;
+	case P2:
+		head = head_2;
+		direction = direction_2;
+		break;
+	}
+	switch (direction)
+	{
+	case UP:
+		for (int i = 0; i < numOfBrain; i++)
+		{
+			if (head->point.x == brain_x[i] && head->point.y == brain_y[i] + 1)
+			{
+				brain_x[i] = -2;
+				brain_y[i] = -2;
+				return true;
+			}
+		}
+		return false;
+	case DOWN:
+		for (int i = 0; i < numOfBrain; i++)
+		{
+			if (head->point.x == brain_x[i] && head->point.y == brain_y[i] - 1)
+			{
+				brain_x[i] = -2;
+				brain_y[i] = -2;
+				return true;
+			}
+		}
+		return false;
+	case LEFT:
+		for (int i = 0; i < numOfBrain; i++)
+		{
+			if (head->point.x == brain_x[i] + 1 && head->point.y == brain_y[i])
+			{
+				brain_x[i] = -2;
+				brain_y[i] = -2;
+				return true;
+			}
+		}
+		return false;
+	case RIGHT:
+		for (int i = 0; i < numOfBrain; i++)
+		{
+			if (head->point.x == brain_x[i] - 1 && head->point.y == brain_y[i])
+			{
+				brain_x[i] = -2;
+				brain_y[i] = -2;
+				return true;
+			}
+		}
+		return false;
+	default:
+		return false;
+	}
+}
+
 void reduceHalf(Player player) {
 	int t;
 	Snake *tail = NULL;
@@ -1907,6 +2172,39 @@ void createLandmine(int x0, int y0, int dx, int dy) {
 				map[landmine_x[i]][landmine_y[i]] = LANDMINE;
 				putimage(x0 + landmine_x[i] * dx, y0 + landmine_y[i] * dy, &landmine);
 				//paintCell(x0, y0, dx, dy, landmine_x[i], landmine_y[i]);
+			}
+		}
+	}
+}
+
+void createBrain(int x0, int y0, int dx, int dy) {
+	if (brainOff)
+	{
+		return;
+	}
+	if (!hasBrain)
+	{
+		for (int i = 0; i < numOfBrain; i++)
+		{
+			brain_x[i] = rand() % 30;
+			brain_y[i] = rand() % 30;
+			while (map[brain_x[i]][brain_y[i]] != 0) {
+				brain_x[i] = rand() % 30;
+				brain_y[i] = rand() % 30;
+			}
+			map[brain_x[i]][brain_y[i]] = BRAIN;
+			putimage(x0 + brain_x[i] * dx, y0 + brain_y[i] * dy, &brain);
+		}
+		hasBrain = true;
+	}
+	else
+	{
+		for (int i = 0; i < numOfBrain; i++)
+		{
+			if (brain_x[i] != -2 && brain_y[i] != -2)
+			{
+				map[brain_x[i]][brain_y[i]] = BRAIN;
+				putimage(x0 + brain_x[i] * dx, y0 + brain_y[i] * dy, &brain);
 			}
 		}
 	}
@@ -2285,7 +2583,6 @@ void move(Player player) {
 	Snake *temp;
 	Snake *head = NULL, *tail = NULL;
 	Direction direction = ERR;
-	Direction lastDirection;
 	switch (player)
 	{
 	case P1:
@@ -2377,23 +2674,24 @@ void initMap() {
 	}
 }
 
-void paintMap() {
+void paintMap(Bool hasBrain_1, Bool hasBrain_2) {
 	int x0 = 10, y0 = 10;
 	int dx = DX, dy = DY;
 	setcolor(BLUE);
 	//rectangle(10, 10, 10 + 30 * DX, 10 + 30 * DY);
-	paintSnake(x0, y0, dx, dy, P1);
+	paintSnake(x0, y0, dx, dy, P1, hasBrain_1);
 	if (currentModel == double_Model || currentModel == computer_Model)
 	{
-		paintSnake(x0, y0, dx, dy, P2);
+		paintSnake(x0, y0, dx, dy, P2, hasBrain_2);
 	}
 	createPoiWeeds(x0, y0, dx, dy);
 	createLandmine(x0, y0, dx, dy);
+	createBrain(x0, y0, dx, dy);
 	createFood(x0, y0, dx, dy);
 	paintButtons();
 }
 
-void paintSnake(int x0, int y0, int dx, int dy, Player player) {
+void paintSnake(int x0, int y0, int dx, int dy, Player player, Bool hasBrain) {
 	IMAGE* cell;
 	Snake* snakeCell = NULL;
 	switch (player)
@@ -2410,7 +2708,7 @@ void paintSnake(int x0, int y0, int dx, int dy, Player player) {
 	int x, y;
 	while (snakeCell != NULL)
 	{
-		cell = getSnakeImage(snakeCell, player);
+		cell = getSnakeImage(snakeCell, player, hasBrain);
 		x = snakeCell->point.x;
 		y = snakeCell->point.y;
 		putimage(x0 + dx * x, y0 + dy * y, cell);

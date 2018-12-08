@@ -1,5 +1,2 @@
 ﻿  main.cpp
-c:\users\asus\desktop\gluttonoussnake\gluttonoussnake\main.cpp(350): warning C4244: “=”: 从“double”转换到“int”，可能丢失数据
-c:\users\asus\desktop\gluttonoussnake\gluttonoussnake\main.cpp(394): warning C4244: “=”: 从“double”转换到“int”，可能丢失数据
-c:\users\asus\desktop\gluttonoussnake\gluttonoussnake\main.cpp(2288): warning C4101: “lastDirection”: 未引用的局部变量
   GluttonousSnake.vcxproj -> C:\Users\asus\Desktop\GluttonousSnake\Debug\GluttonousSnake.exe
