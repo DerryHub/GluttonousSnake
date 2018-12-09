@@ -953,7 +953,7 @@ void paintDoubleScore(int score_1, int score_2) {
 	settextcolor(RED);
 	settextstyle(40, 0, "свт╡");
 	outtextxy(690, 130, scoreStr_1);
-	outtextxy(690, 330, scoreStr_1);
+	outtextxy(690, 330, scoreStr_2);
 }
 
 IMAGE* getSnakeImage(Snake* snakeBody, Player player, Bool hasBrain) {
@@ -1208,6 +1208,7 @@ startPaint:
 					sleepTime = SLEEP_TIME_SIMPLE;
 					numOfPoiWeeds = NUM_OF_POI_WEEDS_SIMPLE;
 					numOfLandmine = NUM_OF_LANDMINE_SIMPLE;
+					numOfBrain = NUM_OF_BRAIN_SIMPLE;
 					numOfFood = NUM_OF_FOODS_SIMPLE;
 					currentDifficulty = simple_Difficulty;
 					scoreThresholdValue = SCORE_SIMPLE;
@@ -1220,6 +1221,7 @@ startPaint:
 					sleepTime = SLEEP_TIME_DIFFICULT;
 					numOfPoiWeeds = NUM_OF_POI_WEEDS_DIFFICULT;
 					numOfLandmine = NUM_OF_LANDMINE_DIFFICULT;
+					numOfBrain = NUM_OF_BRAIN_DIFFICULT;
 					numOfFood = NUM_OF_FOODS_DIFFICULT;
 					currentDifficulty = difficult_Difficulty;
 					scoreThresholdValue = SCORE_DIFFICULT;
@@ -1232,6 +1234,7 @@ startPaint:
 					sleepTime = SLEEP_TIME_IMPOSSIBLE;
 					numOfPoiWeeds = NUM_OF_POI_WEEDS_IMPOSSIBLE;
 					numOfLandmine = NUM_OF_LANDMINE_IMPOSSIBLE;
+					numOfBrain = NUM_OF_BRAIN_IMPOSSIBLE;
 					numOfFood = NUM_OF_FOODS_IMPOSSIBLE;
 					currentDifficulty = impossible_Difficulty;
 					scoreThresholdValue = SCORE_IMPOSSIBLE;
@@ -1515,8 +1518,14 @@ void gameStart_single() {
 			if (autoTime > 0)
 			{
 				autoMove_1 = true;
-				hasBrain_1 = true;
 				autoTime -= sleepTime;
+				if (autoTime < 3000)
+				{
+					hasBrain_1 = !hasBrain_1;
+				}
+				else {
+					hasBrain_1 = true;
+				}
 			}
 			else {
 				autoMove_1 = false;
@@ -1699,8 +1708,14 @@ void gameStart_double() {
 			if (autoTime_1 > 0)
 			{
 				autoMove_1 = true;
-				hasBrain_1 = true;
 				autoTime_1 -= sleepTime;
+				if (autoTime_1 < 3000)
+				{
+					hasBrain_1 = !hasBrain_1;
+				}
+				else {
+					hasBrain_1 = true;
+				}
 			}
 			else {
 				autoMove_1 = false;
@@ -1710,14 +1725,22 @@ void gameStart_double() {
 			if (currentModel == computer_Model)
 			{
 				autoMove_2 = true;
+				hasBrain_2 = false;
 			}
 			else
 			{
 				if (autoTime_2 > 0)
 				{
 					autoMove_2 = true;
-					hasBrain_2 = true;
 					autoTime_2 -= sleepTime;
+					if (autoTime_2 < 3000)
+					{
+						hasBrain_2 = !hasBrain_2;
+					}
+					else
+					{
+						hasBrain_2 = true;
+					}
 				}
 				else {
 					autoMove_2 = false;
@@ -1800,8 +1823,8 @@ void gameStart_double() {
 				winner = P2;
 			}
 			else {
-				reduceCell(P1);
 				snakeLength_1--;
+				reduceCell(P1);
 				move(P1);
 			}
 		}
@@ -1845,8 +1868,8 @@ void gameStart_double() {
 				}
 			}
 			else {
-				reduceCell(P2);
 				snakeLength_2--;
+				reduceCell(P2);
 				move(P2);
 			}
 		}
@@ -1882,29 +1905,6 @@ void gameStart_double() {
 			isOver = true;
 			winner = P2;
 		}
-		
-		/*if (map[head_2->point.x][head_2->point.y] == BODY_1)
-		{
-			isOver = true;
-			if (winner == P2)
-			{
-				if (snakeLength_1 > snakeLength_2)
-				{
-					winner = P1;
-				}
-				else if (snakeLength_1 < snakeLength_2)
-				{
-					winner = P2;
-				}
-				else
-				{
-					winner = none;
-				}
-			}
-			else {
-				winner = P1;
-			}
-		}*/
 		
 		if (head_1->point.x == head_2->point.x && head_1->point.y == head_2->point.y)
 		{
@@ -2596,22 +2596,27 @@ void move(Player player) {
 		tail = tail_2;
 		break;
 	}
-	if (head->next->point.x == head->point.x + 1 && direction == RIGHT)
+
+	if (head->next != NULL)
 	{
-		direction = LEFT;
+		if (head->next->point.x == head->point.x + 1 && direction == RIGHT)
+		{
+			direction = LEFT;
+		}
+		if (head->next->point.x == head->point.x - 1 && direction == LEFT)
+		{
+			direction = RIGHT;
+		}
+		if (head->next->point.y == head->point.y + 1 && direction == DOWN)
+		{
+			direction = UP;
+		}
+		if (head->next->point.y == head->point.y - 1 && direction == UP)
+		{
+			direction = DOWN;
+		}
 	}
-	if (head->next->point.x == head->point.x - 1 && direction == LEFT)
-	{
-		direction = RIGHT;
-	}
-	if (head->next->point.y == head->point.y + 1 && direction == DOWN)
-	{
-		direction = UP;
-	}
-	if (head->next->point.y == head->point.y - 1 && direction == UP)
-	{
-		direction = DOWN;
-	}
+	
 	switch (direction)
 	{
 	case LEFT:
