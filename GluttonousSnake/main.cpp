@@ -4,7 +4,10 @@
 #include<stdio.h>
 #include<time.h>
 #include<math.h>
+#include<pthread.h>
 #include"cJSON.h"
+
+#pragma comment(lib,"Winmm.lib")
 
 #define true 1
 #define false 0
@@ -202,6 +205,7 @@ Bool outOfBoundary(Player);
 void gameStart_single();
 void gameStart_double();
 void loadAllImages();
+void loadAllMusic();
 Operation startMouseListening();
 IMAGE* getSnakeImage(Snake*, Player, Bool);
 void paintModelSetting();
@@ -222,17 +226,21 @@ void getCurrentXY(Player, int*, int*);
 Direction autoGetDirection(Player, Model);
 void setIsMainGUI(Bool);
 void delay(int);
+void *playEatFoodMusic();
 
 int main() {
 	srand((unsigned int)time(0));
 	initgraph(800, 620);
 	loadAllImages();
+	loadAllMusic();
 start:
+	mciSendString(_T("play menuMusic repeat"), NULL, 0, NULL);
 	putimage(0, 0, &startBackground);
 	putimage(30, 560, &b_modelSetting);
 	putimage(300, 560, &b_difficultySetting);
 	putimage(570, 560, &b_continueGame);
 	Operation op = startMouseListening();
+	mciSendString(_T("play buttonMusic from 0"), NULL, 0, NULL);
 	switch (op) {
 	case startGame:
 		doContinue = false;
@@ -246,6 +254,7 @@ start:
 		goto startGame;
 	}
 startGame:
+	mciSendString(_T("stop menuMusic"), NULL, 0, NULL);
 	setIsMainGUI(false);
 	doContinueGame(doContinue);
 	switch (currentModel)
@@ -1212,6 +1221,7 @@ startPaint:
 					numOfFood = NUM_OF_FOODS_SIMPLE;
 					currentDifficulty = simple_Difficulty;
 					scoreThresholdValue = SCORE_SIMPLE;
+					mciSendString(_T("play buttonMusic from 0"), NULL, 0, NULL);
 					goto startPaint;
 				}
 				else if (x > 300 && x < 500 && y > 230 && y < 290)
@@ -1225,6 +1235,7 @@ startPaint:
 					numOfFood = NUM_OF_FOODS_DIFFICULT;
 					currentDifficulty = difficult_Difficulty;
 					scoreThresholdValue = SCORE_DIFFICULT;
+					mciSendString(_T("play buttonMusic from 0"), NULL, 0, NULL);
 					goto startPaint;
 				}
 				else if (x > 300 && x < 500 && y > 330 && y < 390)
@@ -1238,10 +1249,12 @@ startPaint:
 					numOfFood = NUM_OF_FOODS_IMPOSSIBLE;
 					currentDifficulty = impossible_Difficulty;
 					scoreThresholdValue = SCORE_IMPOSSIBLE;
+					mciSendString(_T("play buttonMusic from 0"), NULL, 0, NULL);
 					goto startPaint;
 				}
 				else if (x > 300 && x < 500 && y > 430 && y < 490)
 				{
+					mciSendString(_T("play buttonMusic from 0"), NULL, 0, NULL);
 					goto done;
 				}
 			}
@@ -1287,6 +1300,7 @@ startPaint:
 					//single model
 					choose_y = 120;
 					currentModel = single_Model;
+					mciSendString(_T("play buttonMusic from 0"), NULL, 0, NULL);
 					goto startPaint;
 				}
 				else if (x > 300 && x < 500 && y > 230 && y < 290)
@@ -1294,6 +1308,7 @@ startPaint:
 					//double model
 					choose_y = 220;
 					currentModel = double_Model;
+					mciSendString(_T("play buttonMusic from 0"), NULL, 0, NULL);
 					goto startPaint;
 				}
 				else if (x > 300 && x < 500 && y > 330 && y < 390)
@@ -1301,10 +1316,12 @@ startPaint:
 					//computer model
 					choose_y = 320;
 					currentModel = computer_Model;
+					mciSendString(_T("play buttonMusic from 0"), NULL, 0, NULL);
 					goto startPaint;
 				}
 				else if (x > 300 && x < 500 && y > 430 && y < 490)
 				{
+					mciSendString(_T("play buttonMusic from 0"), NULL, 0, NULL);
 					goto done;
 				}
 			}
@@ -1414,7 +1431,29 @@ void loadAllImages() {
 	loadimage(&snake_2[4][3], "images/snake/tail_left_2.png");
 }
 
+void loadAllMusic() {
+	mciSendString(_T("open music\\backgroundMusic.mp3 alias backgroundMusic"), NULL, 0, NULL);
+	mciSendString(_T("open music\\menuMusic.mp3 alias menuMusic"), NULL, 0, NULL);
+	mciSendString(_T("open music\\readyGo.mp3 alias readyGoMusic"), NULL, 0, NULL);
+	mciSendString(_T("open music\\eatFood.wav alias eatFoodMusic"), NULL, 0, NULL);
+	mciSendString(_T("open music\\eatLandmine.wav alias eatLandmineMusic"), NULL, 0, NULL);
+	mciSendString(_T("open music\\eatPoiWeed.wav alias eatPoiWeedMusic"), NULL, 0, NULL);
+	mciSendString(_T("open music\\eatBrain.wav alias eatBrainMusic"), NULL, 0, NULL);
+	mciSendString(_T("open music\\BrainOver.wav alias brainOverMusic"), NULL, 0, NULL);
+	mciSendString(_T("open music\\loss.wav alias lossMusic"), NULL, 0, NULL);
+	mciSendString(_T("open music\\win.wav alias winMusic"), NULL, 0, NULL);
+	mciSendString(_T("open music\\gameOver.wav alias gameOverMusic"), NULL, 0, NULL);
+	mciSendString(_T("open music\\pause.wav alias pauseMusic"), NULL, 0, NULL);
+	mciSendString(_T("open music\\button.wav alias buttonMusic"), NULL, 0, NULL);
+}
+
+//void *playEatFoodMusic() {
+//	mciSendString(_T("play eatFoodMusic from 0"), NULL, 0, NULL);
+//	return NULL;
+//}
+
 void gameStart_single() {
+	mciSendString(_T("play readyGoMusic from 0"), NULL, 0, NULL);
 	int score;
 	int poiWeedsTime = 0;
 	Direction d_temp;
@@ -1424,8 +1463,9 @@ void gameStart_single() {
 	int autoTime = 0;
 	Bool start = false;
 	Bool hasBrain_1 = false;
+	Bool brainOvering = false;
 	putimage(0, 200, &readyImage);
-	Sleep(2000);
+	Sleep(1500);
 	cleardevice();
 	while (true)
 	{
@@ -1442,6 +1482,8 @@ void gameStart_single() {
 			putimage(0, 200, &readyImage);
 			Sleep(1000);
 			start = true;
+			mciSendString(_T("stop readyGoMusic"), NULL, 0, NULL);
+			mciSendString(_T("play backgroundMusic repeat"), NULL, 0, NULL);
 		}
 		Sleep(sleepTime / FLASH_FREQ);
 		MOUSEMSG msg;
@@ -1456,11 +1498,13 @@ void gameStart_single() {
 			case WM_LBUTTONDOWN:
 				if (x > 635 && x < 785 && y>480 && y < 530)
 				{
+					mciSendString(_T("play pauseMusic from 0"), NULL, 0, NULL);
 					isPause = !isPause;
 				}
 				else if (x > 635 && x < 785 && y > 550 && y < 600)
 				{
 					setIsMainGUI(true);
+					mciSendString(_T("play buttonMusic from 0"), NULL, 0, NULL);
 					goto start;
 				}
 			}
@@ -1470,9 +1514,10 @@ void gameStart_single() {
 			switch (keyASC)
 			{
 			case ' ':
+				mciSendString(_T("play pauseMusic from 0"), NULL, 0, NULL);
 				isPause = !isPause;
 			}
-			if (!keyUsed_1 && !autoMove_1)
+			if (!keyUsed_1 && !autoMove_1 && !isPause)
 			{
 				d_temp = listenDirection(keyASC, P1);
 				if (d_temp != ERR)
@@ -1519,12 +1564,18 @@ void gameStart_single() {
 			{
 				autoMove_1 = true;
 				autoTime -= sleepTime;
-				if (autoTime < 3000)
+				if (autoTime < 2000)
 				{
+					if (!brainOvering)
+					{
+						mciSendString(_T("play brainOverMusic from 0"), NULL, 0, NULL);
+					}
+					brainOvering = true;
 					hasBrain_1 = !hasBrain_1;
 				}
 				else {
 					hasBrain_1 = true;
+					brainOvering = false;
 				}
 			}
 			else {
@@ -1536,14 +1587,17 @@ void gameStart_single() {
 				direction_1 = autoGetDirection(P1, single_Model);
 			}
 		}
-		
+
 		if (eatFood(P1))
 		{
+
+			mciSendString(_T("play eatFoodMusic from 0"), NULL, 0, NULL);
 			growUp(P1);
 			snakeLength_1++;
 		}
 		else if (eatPoiWeed(P1))
 		{
+			mciSendString(_T("play eatPoiWeedMusic from 0"), NULL, 0, NULL);
 			if (snakeLength_1 <= 1)
 			{
 				isOver = true;
@@ -1555,6 +1609,7 @@ void gameStart_single() {
 			}
 		}
 		else if (eatLandmine(P1)) {
+			mciSendString(_T("play eatLandmineMusic from 0"), NULL, 0, NULL);
 			if (snakeLength_1 <= 1)
 			{
 				isOver = true;
@@ -1566,6 +1621,7 @@ void gameStart_single() {
 			}
 		}
 		else if (eatBrain(P1)) {
+			mciSendString(_T("play eatBrainMusic from 0"), NULL, 0, NULL);
 			autoTime = BRAIN_MAINTAIN_TIME;
 			move(P1);
 		}
@@ -1585,11 +1641,21 @@ void gameStart_single() {
 			break;
 		}
 	}
+	mciSendString(_T("stop backgroundMusic"), NULL, 0, NULL);
+	if (isWin)
+	{
+		mciSendString(_T("play winMusic from 0"), NULL, 0, NULL);
+	}
+	else {
+		mciSendString(_T("play lossMusic from 0"), NULL, 0, NULL);
+	}
 	paintGameOver(isWin);
-start:;
+start:
+	;
 }
 
 void gameStart_double() {
+	mciSendString(_T("play readyGoMusic from 0"), NULL, 0, NULL);
 	int score_1 = 0, score_2 = 0;
 	int poiWeedsTime = 0;
 	int brainTime = 0;
@@ -1602,8 +1668,9 @@ void gameStart_double() {
 	int nextX_1, nextY_1;
 	int nextX_2, nextY_2;
 	Bool hasBrain_1 = false, hasBrain_2 = false;
+	Bool brainOvering_1 = false, brainOvering_2 = false;
 	putimage(0, 200, &readyImage);
-	Sleep(2000);
+	Sleep(1500);
 	cleardevice();
 	while (true)
 	{
@@ -1623,6 +1690,8 @@ void gameStart_double() {
 			putimage(0, 200, &readyImage);
 			Sleep(1000);
 			start = true;
+			mciSendString(_T("stop readyGoMusic"), NULL, 0, NULL);
+			mciSendString(_T("play backgroundMusic repeat"), NULL, 0, NULL);
 		}
 		Sleep(sleepTime / FLASH_FREQ);
 		MOUSEMSG msg;
@@ -1637,11 +1706,13 @@ void gameStart_double() {
 			case WM_LBUTTONDOWN:
 				if (x > 635 && x < 785 && y>480 && y < 530)
 				{
+					mciSendString(_T("play pauseMusic from 0"), NULL, 0, NULL);
 					isPause = !isPause;
 				}
 				else if (x > 635 && x < 785 && y > 550 && y < 600)
 				{
 					setIsMainGUI(true);
+					mciSendString(_T("play buttonMusic from 0"), NULL, 0, NULL);
 					goto start;
 				}
 			}
@@ -1651,9 +1722,10 @@ void gameStart_double() {
 			switch (keyASC)
 			{
 			case ' ':
+				mciSendString(_T("play pauseMusic from 0"), NULL, 0, NULL);
 				isPause = !isPause;
 			}
-			if (!keyUsed_1 && !autoMove_1)
+			if (!keyUsed_1 && !autoMove_1 && !isPause)
 			{
 				d_temp_1 = listenDirection(keyASC, P1);
 				if (d_temp_1 != ERR)
@@ -1662,7 +1734,7 @@ void gameStart_double() {
 					keyUsed_1 = true;
 				}
 			}
-			if (!keyUsed_2 && !autoMove_2)
+			if (!keyUsed_2 && !autoMove_2 && !isPause)
 			{
 				d_temp_2 = listenDirection(keyASC, P2);
 				if (d_temp_2 != ERR)
@@ -1709,11 +1781,17 @@ void gameStart_double() {
 			{
 				autoMove_1 = true;
 				autoTime_1 -= sleepTime;
-				if (autoTime_1 < 3000)
+				if (autoTime_1 < 2000)
 				{
+					if (!brainOvering_1)
+					{
+						mciSendString(_T("play brainOverMusic from 0"), NULL, 0, NULL);
+					}
+					brainOvering_1 = true;
 					hasBrain_1 = !hasBrain_1;
 				}
 				else {
+					brainOvering_1 = false;
 					hasBrain_1 = true;
 				}
 			}
@@ -1733,12 +1811,18 @@ void gameStart_double() {
 				{
 					autoMove_2 = true;
 					autoTime_2 -= sleepTime;
-					if (autoTime_2 < 3000)
+					if (autoTime_2 < 2000)
 					{
+						if (!brainOvering_2)
+						{
+							mciSendString(_T("play brainOverMusic from 0"), NULL, 0, NULL);
+						}
+						brainOvering_2 = true;
 						hasBrain_2 = !hasBrain_2;
 					}
 					else
 					{
+						brainOvering_2 = false;
 						hasBrain_2 = true;
 					}
 				}
@@ -1812,11 +1896,13 @@ void gameStart_double() {
 
 		if (eatFood(P1))
 		{
+			mciSendString(_T("play eatFoodMusic from 0"), NULL, 0, NULL);
 			growUp(P1);
 			snakeLength_1++;
 		}
 		else if (eatPoiWeed(P1))
 		{
+			mciSendString(_T("play eatPoiWeedMusic from 0"), NULL, 0, NULL);
 			if (snakeLength_1 <= 1)
 			{
 				isOver = true;
@@ -1829,6 +1915,7 @@ void gameStart_double() {
 			}
 		}
 		else if (eatLandmine(P1)) {
+			mciSendString(_T("play eatLandmineMusic from 0"), NULL, 0, NULL);
 			if (snakeLength_1 <= 1)
 			{
 				isOver = true;
@@ -1841,6 +1928,7 @@ void gameStart_double() {
 			}
 		}
 		else if (eatBrain(P1)) {
+			mciSendString(_T("play eatBrainMusic from 0"), NULL, 0, NULL);
 			autoTime_1 = BRAIN_MAINTAIN_TIME;
 			move(P1);
 		}
@@ -1851,11 +1939,13 @@ void gameStart_double() {
 
 		if (eatFood(P2))
 		{
+			mciSendString(_T("play eatFoodMusic from 0"), NULL, 0, NULL);
 			growUp(P2);
 			snakeLength_2++;
 		}
 		else if (eatPoiWeed(P2))
 		{
+			mciSendString(_T("play eatPoiWeedMusic from 0"), NULL, 0, NULL);
 			if (snakeLength_2 <= 1)
 			{
 				isOver = true;
@@ -1874,6 +1964,7 @@ void gameStart_double() {
 			}
 		}
 		else if (eatLandmine(P2)) {
+			mciSendString(_T("play eatLandmineMusic from 0"), NULL, 0, NULL);
 			if (snakeLength_2 <= 1)
 			{
 				isOver = true;
@@ -1892,6 +1983,7 @@ void gameStart_double() {
 			}
 		}
 		else if (eatBrain(P2)) {
+			mciSendString(_T("play eatBrainMusic from 0"), NULL, 0, NULL);
 			autoTime_2 = BRAIN_MAINTAIN_TIME;
 			move(P2);
 		}
@@ -1955,8 +2047,11 @@ void gameStart_double() {
 			break;
 		}
 	}
+	mciSendString(_T("stop backgroundMusic"), NULL, 0, NULL);
+	mciSendString(_T("play gameOverMusic from 0"), NULL, 0, NULL);
 	paintWinner(winner);
-start:;
+start:
+	;
 }
 
 Bool outOfBoundary(Player player) {
