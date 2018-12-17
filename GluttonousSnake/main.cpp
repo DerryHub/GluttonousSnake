@@ -8,6 +8,7 @@
 #include"cJSON.h"
 
 #pragma comment(lib,"Winmm.lib")
+#pragma comment(lib, "pthreadVC2.lib")
 
 #define true 1
 #define false 0
@@ -182,6 +183,8 @@ Difficulty currentDifficulty = simple_Difficulty;
 Direction direction_1;
 Direction direction_2;
 
+pthread_t newThread;
+
 void initMap();
 void paintSnake(int, int, int, int, Player, Bool);
 void paintMap(Bool, Bool);
@@ -226,7 +229,11 @@ void getCurrentXY(Player, int*, int*);
 Direction autoGetDirection(Player, Model);
 void setIsMainGUI(Bool);
 void delay(int);
-void *playEatFoodMusic();
+void *playEatFoodMusic(void*);
+void *playEatPoiWeedMusic(void*);
+void *playEatLandmineMusic(void*);
+void *playEatBrainMusic(void*);
+void *playBrainOverMusic(void*);
 
 int main() {
 	srand((unsigned int)time(0));
@@ -1447,10 +1454,35 @@ void loadAllMusic() {
 	mciSendString(_T("open music\\button.wav alias buttonMusic"), NULL, 0, NULL);
 }
 
-//void *playEatFoodMusic() {
-//	mciSendString(_T("play eatFoodMusic from 0"), NULL, 0, NULL);
-//	return NULL;
-//}
+void *playEatFoodMusic(void*p) {
+	mciSendString(_T("open music\\eatFood.wav alias eatFoodMusic"), NULL, 0, NULL);
+	mciSendString(_T("play eatFoodMusic from 0"), NULL, 0, NULL);
+	return NULL;
+}
+
+void *playEatPoiWeedMusic(void*p) {
+	mciSendString(_T("open music\\eatPoiWeed.wav alias eatPoiWeedMusic"), NULL, 0, NULL);
+	mciSendString(_T("play eatPoiWeedMusic from 0"), NULL, 0, NULL);
+	return NULL;
+}
+
+void *playEatLandmineMusic(void*p) {
+	mciSendString(_T("open music\\eatLandmine.wav alias eatLandmineMusic"), NULL, 0, NULL);
+	mciSendString(_T("play eatLandmineMusic from 0"), NULL, 0, NULL);
+	return NULL;
+}
+
+void *playEatBrainMusic(void*p) {
+	mciSendString(_T("open music\\eatBrain.wav alias eatBrainMusic"), NULL, 0, NULL);
+	mciSendString(_T("play eatBrainMusic from 0"), NULL, 0, NULL);
+	return NULL;
+}
+
+void *playBrainOverMusic(void*) {
+	mciSendString(_T("open music\\BrainOver.wav alias brainOverMusic"), NULL, 0, NULL);
+	mciSendString(_T("play brainOverMusic from 0"), NULL, 0, NULL);
+	return NULL;
+}
 
 void gameStart_single() {
 	mciSendString(_T("play readyGoMusic from 0"), NULL, 0, NULL);
@@ -1467,6 +1499,7 @@ void gameStart_single() {
 	putimage(0, 200, &readyImage);
 	Sleep(1500);
 	cleardevice();
+	FlushConsoleInputBuffer(GetStdHandle(STD_INPUT_HANDLE));
 	while (true)
 	{
 		paintPoiWeeds = !paintPoiWeeds;
@@ -1527,6 +1560,7 @@ void gameStart_single() {
 				}
 			}
 		}
+
 		if (FLASH_FREQ != poi_times)
 		{
 			if (!isPause)
@@ -1568,7 +1602,8 @@ void gameStart_single() {
 				{
 					if (!brainOvering)
 					{
-						mciSendString(_T("play brainOverMusic from 0"), NULL, 0, NULL);
+						if (pthread_create(&newThread, NULL, playBrainOverMusic, NULL) == -1)
+							mciSendString(_T("play brainOverMusic from 0"), NULL, 0, NULL);
 					}
 					brainOvering = true;
 					hasBrain_1 = !hasBrain_1;
@@ -1590,14 +1625,15 @@ void gameStart_single() {
 
 		if (eatFood(P1))
 		{
-
-			mciSendString(_T("play eatFoodMusic from 0"), NULL, 0, NULL);
+			if(pthread_create(&newThread, NULL, playEatFoodMusic, NULL) == -1)
+				mciSendString(_T("play eatFoodMusic from 0"), NULL, 0, NULL);
 			growUp(P1);
 			snakeLength_1++;
 		}
 		else if (eatPoiWeed(P1))
 		{
-			mciSendString(_T("play eatPoiWeedMusic from 0"), NULL, 0, NULL);
+			if (pthread_create(&newThread, NULL, playEatPoiWeedMusic, NULL) == -1)
+				mciSendString(_T("play eatPoiWeedMusic from 0"), NULL, 0, NULL);
 			if (snakeLength_1 <= 1)
 			{
 				isOver = true;
@@ -1609,7 +1645,8 @@ void gameStart_single() {
 			}
 		}
 		else if (eatLandmine(P1)) {
-			mciSendString(_T("play eatLandmineMusic from 0"), NULL, 0, NULL);
+			if (pthread_create(&newThread, NULL, playEatLandmineMusic, NULL) == -1)
+				mciSendString(_T("play eatLandmineMusic from 0"), NULL, 0, NULL);
 			if (snakeLength_1 <= 1)
 			{
 				isOver = true;
@@ -1621,7 +1658,8 @@ void gameStart_single() {
 			}
 		}
 		else if (eatBrain(P1)) {
-			mciSendString(_T("play eatBrainMusic from 0"), NULL, 0, NULL);
+			if (pthread_create(&newThread, NULL, playEatBrainMusic, NULL) == -1)
+				mciSendString(_T("play eatBrainMusic from 0"), NULL, 0, NULL);
 			autoTime = BRAIN_MAINTAIN_TIME;
 			move(P1);
 		}
@@ -1641,6 +1679,7 @@ void gameStart_single() {
 			break;
 		}
 	}
+	isOver = true;
 	mciSendString(_T("stop backgroundMusic"), NULL, 0, NULL);
 	if (isWin)
 	{
@@ -1672,6 +1711,7 @@ void gameStart_double() {
 	putimage(0, 200, &readyImage);
 	Sleep(1500);
 	cleardevice();
+	FlushConsoleInputBuffer(GetStdHandle(STD_INPUT_HANDLE));
 	while (true)
 	{
 		score_1 = 10 * (snakeLength_1 - SNAKE_INIT_LENGTH);
@@ -1785,7 +1825,8 @@ void gameStart_double() {
 				{
 					if (!brainOvering_1)
 					{
-						mciSendString(_T("play brainOverMusic from 0"), NULL, 0, NULL);
+						if (pthread_create(&newThread, NULL, playBrainOverMusic, NULL) == -1)
+							mciSendString(_T("play brainOverMusic from 0"), NULL, 0, NULL);
 					}
 					brainOvering_1 = true;
 					hasBrain_1 = !hasBrain_1;
@@ -1815,7 +1856,8 @@ void gameStart_double() {
 					{
 						if (!brainOvering_2)
 						{
-							mciSendString(_T("play brainOverMusic from 0"), NULL, 0, NULL);
+							if (pthread_create(&newThread, NULL, playBrainOverMusic, NULL) == -1)
+								mciSendString(_T("play brainOverMusic from 0"), NULL, 0, NULL);
 						}
 						brainOvering_2 = true;
 						hasBrain_2 = !hasBrain_2;
@@ -1896,13 +1938,15 @@ void gameStart_double() {
 
 		if (eatFood(P1))
 		{
-			mciSendString(_T("play eatFoodMusic from 0"), NULL, 0, NULL);
+			if (pthread_create(&newThread, NULL, playEatFoodMusic, NULL) == -1)
+				mciSendString(_T("play eatFoodMusic from 0"), NULL, 0, NULL);
 			growUp(P1);
 			snakeLength_1++;
 		}
 		else if (eatPoiWeed(P1))
 		{
-			mciSendString(_T("play eatPoiWeedMusic from 0"), NULL, 0, NULL);
+			if (pthread_create(&newThread, NULL, playEatPoiWeedMusic, NULL) == -1)
+				mciSendString(_T("play eatPoiWeedMusic from 0"), NULL, 0, NULL);
 			if (snakeLength_1 <= 1)
 			{
 				isOver = true;
@@ -1915,7 +1959,8 @@ void gameStart_double() {
 			}
 		}
 		else if (eatLandmine(P1)) {
-			mciSendString(_T("play eatLandmineMusic from 0"), NULL, 0, NULL);
+			if (pthread_create(&newThread, NULL, playEatLandmineMusic, NULL) == -1)
+				mciSendString(_T("play eatLandmineMusic from 0"), NULL, 0, NULL);
 			if (snakeLength_1 <= 1)
 			{
 				isOver = true;
@@ -1928,7 +1973,8 @@ void gameStart_double() {
 			}
 		}
 		else if (eatBrain(P1)) {
-			mciSendString(_T("play eatBrainMusic from 0"), NULL, 0, NULL);
+			if (pthread_create(&newThread, NULL, playEatBrainMusic, NULL) == -1)
+				mciSendString(_T("play eatBrainMusic from 0"), NULL, 0, NULL);
 			autoTime_1 = BRAIN_MAINTAIN_TIME;
 			move(P1);
 		}
@@ -1939,13 +1985,15 @@ void gameStart_double() {
 
 		if (eatFood(P2))
 		{
-			mciSendString(_T("play eatFoodMusic from 0"), NULL, 0, NULL);
+			if (pthread_create(&newThread, NULL, playEatFoodMusic, NULL) == -1)
+				mciSendString(_T("play eatFoodMusic from 0"), NULL, 0, NULL);
 			growUp(P2);
 			snakeLength_2++;
 		}
 		else if (eatPoiWeed(P2))
 		{
-			mciSendString(_T("play eatPoiWeedMusic from 0"), NULL, 0, NULL);
+			if (pthread_create(&newThread, NULL, playEatPoiWeedMusic, NULL) == -1)
+				mciSendString(_T("play eatPoiWeedMusic from 0"), NULL, 0, NULL);
 			if (snakeLength_2 <= 1)
 			{
 				isOver = true;
@@ -1964,7 +2012,8 @@ void gameStart_double() {
 			}
 		}
 		else if (eatLandmine(P2)) {
-			mciSendString(_T("play eatLandmineMusic from 0"), NULL, 0, NULL);
+			if (pthread_create(&newThread, NULL, playEatLandmineMusic, NULL) == -1)
+				mciSendString(_T("play eatLandmineMusic from 0"), NULL, 0, NULL);
 			if (snakeLength_2 <= 1)
 			{
 				isOver = true;
@@ -1983,7 +2032,8 @@ void gameStart_double() {
 			}
 		}
 		else if (eatBrain(P2)) {
-			mciSendString(_T("play eatBrainMusic from 0"), NULL, 0, NULL);
+			if (pthread_create(&newThread, NULL, playEatBrainMusic, NULL) == -1)
+				mciSendString(_T("play eatBrainMusic from 0"), NULL, 0, NULL);
 			autoTime_2 = BRAIN_MAINTAIN_TIME;
 			move(P2);
 		}
