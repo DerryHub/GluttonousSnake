@@ -38,20 +38,20 @@
 #define POI_WEED 6
 #define LANDMINE 7
 #define BRAIN 8
-#define SLEEP_TIME_SIMPLE 150
-#define SLEEP_TIME_DIFFICULT 100
+#define SLEEP_TIME_SIMPLE 100
+#define SLEEP_TIME_DIFFICULT 70
 #define SLEEP_TIME_IMPOSSIBLE 50
 #define NUM_OF_POI_WEEDS_SIMPLE 2
 #define NUM_OF_POI_WEEDS_DIFFICULT 5
-#define NUM_OF_POI_WEEDS_IMPOSSIBLE 10
-#define NUM_OF_LANDMINE_SIMPLE 1
-#define NUM_OF_LANDMINE_DIFFICULT 3
-#define NUM_OF_LANDMINE_IMPOSSIBLE 7
+#define NUM_OF_POI_WEEDS_IMPOSSIBLE 8
+#define NUM_OF_LANDMINE_SIMPLE 2
+#define NUM_OF_LANDMINE_DIFFICULT 4
+#define NUM_OF_LANDMINE_IMPOSSIBLE 8
 #define NUM_OF_BRAIN_SIMPLE 3
 #define NUM_OF_BRAIN_DIFFICULT 2
 #define NUM_OF_BRAIN_IMPOSSIBLE 1
-#define NUM_OF_FOODS_SIMPLE 10
-#define NUM_OF_FOODS_DIFFICULT 5
+#define NUM_OF_FOODS_SIMPLE 5
+#define NUM_OF_FOODS_DIFFICULT 3
 #define NUM_OF_FOODS_IMPOSSIBLE 1
 #define SCORE_SIMPLE 300
 #define SCORE_DIFFICULT 500
@@ -183,7 +183,9 @@ Difficulty currentDifficulty = simple_Difficulty;
 Direction direction_1;
 Direction direction_2;
 
-pthread_t newThread;
+pthread_t newThread_1;
+pthread_t newThread_2;
+pthread_t newThread_3;
 
 void initMap();
 void paintSnake(int, int, int, int, Player, Bool);
@@ -1602,7 +1604,7 @@ void gameStart_single() {
 				{
 					if (!brainOvering)
 					{
-						if (pthread_create(&newThread, NULL, playBrainOverMusic, NULL) == -1)
+						if (pthread_create(&newThread_2, NULL, playBrainOverMusic, NULL) == -1)
 							mciSendString(_T("play brainOverMusic from 0"), NULL, 0, NULL);
 					}
 					brainOvering = true;
@@ -1625,14 +1627,14 @@ void gameStart_single() {
 
 		if (eatFood(P1))
 		{
-			if(pthread_create(&newThread, NULL, playEatFoodMusic, NULL) == -1)
+			if(pthread_create(&newThread_1, NULL, playEatFoodMusic, NULL) == -1)
 				mciSendString(_T("play eatFoodMusic from 0"), NULL, 0, NULL);
 			growUp(P1);
 			snakeLength_1++;
 		}
 		else if (eatPoiWeed(P1))
 		{
-			if (pthread_create(&newThread, NULL, playEatPoiWeedMusic, NULL) == -1)
+			if (pthread_create(&newThread_3, NULL, playEatPoiWeedMusic, NULL) == -1)
 				mciSendString(_T("play eatPoiWeedMusic from 0"), NULL, 0, NULL);
 			if (snakeLength_1 <= 1)
 			{
@@ -1645,7 +1647,7 @@ void gameStart_single() {
 			}
 		}
 		else if (eatLandmine(P1)) {
-			if (pthread_create(&newThread, NULL, playEatLandmineMusic, NULL) == -1)
+			if (pthread_create(&newThread_1, NULL, playEatLandmineMusic, NULL) == -1)
 				mciSendString(_T("play eatLandmineMusic from 0"), NULL, 0, NULL);
 			if (snakeLength_1 <= 1)
 			{
@@ -1658,7 +1660,7 @@ void gameStart_single() {
 			}
 		}
 		else if (eatBrain(P1)) {
-			if (pthread_create(&newThread, NULL, playEatBrainMusic, NULL) == -1)
+			if (pthread_create(&newThread_3, NULL, playEatBrainMusic, NULL) == -1)
 				mciSendString(_T("play eatBrainMusic from 0"), NULL, 0, NULL);
 			autoTime = BRAIN_MAINTAIN_TIME;
 			move(P1);
@@ -1825,7 +1827,7 @@ void gameStart_double() {
 				{
 					if (!brainOvering_1)
 					{
-						if (pthread_create(&newThread, NULL, playBrainOverMusic, NULL) == -1)
+						if (pthread_create(&newThread_3, NULL, playBrainOverMusic, NULL) == -1)
 							mciSendString(_T("play brainOverMusic from 0"), NULL, 0, NULL);
 					}
 					brainOvering_1 = true;
@@ -1856,7 +1858,7 @@ void gameStart_double() {
 					{
 						if (!brainOvering_2)
 						{
-							if (pthread_create(&newThread, NULL, playBrainOverMusic, NULL) == -1)
+							if (pthread_create(&newThread_3, NULL, playBrainOverMusic, NULL) == -1)
 								mciSendString(_T("play brainOverMusic from 0"), NULL, 0, NULL);
 						}
 						brainOvering_2 = true;
@@ -1938,14 +1940,14 @@ void gameStart_double() {
 
 		if (eatFood(P1))
 		{
-			if (pthread_create(&newThread, NULL, playEatFoodMusic, NULL) == -1)
+			if (pthread_create(&newThread_1, NULL, playEatFoodMusic, NULL) == -1)
 				mciSendString(_T("play eatFoodMusic from 0"), NULL, 0, NULL);
 			growUp(P1);
 			snakeLength_1++;
 		}
 		else if (eatPoiWeed(P1))
 		{
-			if (pthread_create(&newThread, NULL, playEatPoiWeedMusic, NULL) == -1)
+			if (pthread_create(&newThread_1, NULL, playEatPoiWeedMusic, NULL) == -1)
 				mciSendString(_T("play eatPoiWeedMusic from 0"), NULL, 0, NULL);
 			if (snakeLength_1 <= 1)
 			{
@@ -1959,7 +1961,7 @@ void gameStart_double() {
 			}
 		}
 		else if (eatLandmine(P1)) {
-			if (pthread_create(&newThread, NULL, playEatLandmineMusic, NULL) == -1)
+			if (pthread_create(&newThread_1, NULL, playEatLandmineMusic, NULL) == -1)
 				mciSendString(_T("play eatLandmineMusic from 0"), NULL, 0, NULL);
 			if (snakeLength_1 <= 1)
 			{
@@ -1973,7 +1975,7 @@ void gameStart_double() {
 			}
 		}
 		else if (eatBrain(P1)) {
-			if (pthread_create(&newThread, NULL, playEatBrainMusic, NULL) == -1)
+			if (pthread_create(&newThread_1, NULL, playEatBrainMusic, NULL) == -1)
 				mciSendString(_T("play eatBrainMusic from 0"), NULL, 0, NULL);
 			autoTime_1 = BRAIN_MAINTAIN_TIME;
 			move(P1);
@@ -1985,14 +1987,14 @@ void gameStart_double() {
 
 		if (eatFood(P2))
 		{
-			if (pthread_create(&newThread, NULL, playEatFoodMusic, NULL) == -1)
+			if (pthread_create(&newThread_2, NULL, playEatFoodMusic, NULL) == -1)
 				mciSendString(_T("play eatFoodMusic from 0"), NULL, 0, NULL);
 			growUp(P2);
 			snakeLength_2++;
 		}
 		else if (eatPoiWeed(P2))
 		{
-			if (pthread_create(&newThread, NULL, playEatPoiWeedMusic, NULL) == -1)
+			if (pthread_create(&newThread_2, NULL, playEatPoiWeedMusic, NULL) == -1)
 				mciSendString(_T("play eatPoiWeedMusic from 0"), NULL, 0, NULL);
 			if (snakeLength_2 <= 1)
 			{
@@ -2012,7 +2014,7 @@ void gameStart_double() {
 			}
 		}
 		else if (eatLandmine(P2)) {
-			if (pthread_create(&newThread, NULL, playEatLandmineMusic, NULL) == -1)
+			if (pthread_create(&newThread_2, NULL, playEatLandmineMusic, NULL) == -1)
 				mciSendString(_T("play eatLandmineMusic from 0"), NULL, 0, NULL);
 			if (snakeLength_2 <= 1)
 			{
@@ -2032,7 +2034,7 @@ void gameStart_double() {
 			}
 		}
 		else if (eatBrain(P2)) {
-			if (pthread_create(&newThread, NULL, playEatBrainMusic, NULL) == -1)
+			if (pthread_create(&newThread_2, NULL, playEatBrainMusic, NULL) == -1)
 				mciSendString(_T("play eatBrainMusic from 0"), NULL, 0, NULL);
 			autoTime_2 = BRAIN_MAINTAIN_TIME;
 			move(P2);
