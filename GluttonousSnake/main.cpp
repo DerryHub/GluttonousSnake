@@ -1692,7 +1692,7 @@ void gameStart_single() {
 	}
 	paintGameOver(isWin);
 start:
-	;
+	mciSendString(_T("stop backgroundMusic"), NULL, 0, NULL);
 }
 
 void gameStart_double() {
@@ -2103,7 +2103,7 @@ void gameStart_double() {
 	mciSendString(_T("play gameOverMusic from 0"), NULL, 0, NULL);
 	paintWinner(winner);
 start:
-	;
+	mciSendString(_T("stop backgroundMusic"), NULL, 0, NULL);
 }
 
 Bool outOfBoundary(Player player) {

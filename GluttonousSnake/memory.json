@@ -1,35 +1,35 @@
 {
-	"model":	1,
-	"difficulty":	1,
+	"model":	0,
+	"difficulty":	0,
 	"direction_1":	3,
-	"direction_2":	1,
+	"direction_2":	0,
 	"snakes":	{
 		"snake_1":	{
-			"snake_1_x":	[15, 16, 17, 18, 19],
+			"snake_1_x":	[3, 4, 5, 6, 7],
 			"snake_1_y":	[15, 15, 15, 15, 15]
 		},
 		"snake_2":	{
-			"snake_2_x":	[14, 13, 12, 11, 10],
-			"snake_2_y":	[15, 15, 15, 15, 15]
+			"snake_2_x":	[],
+			"snake_2_y":	[]
 		}
 	},
 	"food":	{
-		"food_x":	[18, 25, 6],
-		"food_y":	[28, 26, 1],
-		"foodIndex":	[10, 10, 5]
+		"food_x":	[29, 17, 2, 23, 16],
+		"food_y":	[28, 9, 28, 2, 9],
+		"foodIndex":	[11, 3, 0, 6, 3]
 	},
 	"poi_weed":	{
 		"poi_weedOff":	0,
-		"poi_weed_x":	[24, 6, 28, 10, 12],
-		"poi_weed_y":	[19, 17, 10, 12, 7]
+		"poi_weed_x":	[14, 14],
+		"poi_weed_y":	[13, 16]
 	},
 	"landmine":	{
-		"landmine_x":	[6, 4, 20, 28],
-		"landmine_y":	[22, 3, 12, 28]
+		"landmine_x":	[23, 15],
+		"landmine_y":	[29, 27]
 	},
 	"brain":	{
 		"brainOff":	0,
-		"brain_x":	[24, 14],
-		"brain_y":	[2, 21]
+		"brain_x":	[5, 14, 25],
+		"brain_y":	[28, 21, 28]
 	}
 }
