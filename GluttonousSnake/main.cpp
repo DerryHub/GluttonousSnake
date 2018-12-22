@@ -29,16 +29,6 @@
 #define KEY_UP_2_1 'W'
 #define KEY_RIGHT_2_1 'D'
 #define KEY_DOWN_2_1 'S'
-//#define NOTHING 0
-//#define BODY_1 1
-//#define HEAD_1 2
-//#define BODY_2 3
-//#define HEAD_2 4
-//#define FOOD 5
-//#define POI_WEED 6
-//#define LANDMINE 7
-//#define BRAIN 8
-//#define TONE 9
 #define SLEEP_TIME_SIMPLE 100
 #define SLEEP_TIME_DIFFICULT 70
 #define SLEEP_TIME_IMPOSSIBLE 50
@@ -54,9 +44,11 @@
 #define NUM_OF_FOODS_SIMPLE 5
 #define NUM_OF_FOODS_DIFFICULT 3
 #define NUM_OF_FOODS_IMPOSSIBLE 1
-#define NUM_OF_TONE_SIMPLE 10
-#define NUM_OF_TONE_DIFFICULT 20
-#define NUM_OF_TONE_IMPOSSIBLE 40
+#define NUM_OF_BARRIER_SIMPLE 2
+#define NUM_OF_BARRIER_DIFFICULT 5
+#define NUM_OF_BARRIER_IMPOSSIBLE 8
+#define MAX_NUM_OF_TONE_PER_BARRIER 8
+#define MIN_NUM_OF_TONE_PER_BARRIER 2
 #define SCORE_SIMPLE 300
 #define SCORE_DIFFICULT 500
 #define SCORE_IMPOSSIBLE 700
@@ -109,6 +101,7 @@ typedef enum {
 	LANDMINE,
 	BRAIN,
 	TONE,
+	NO_ANYTHING
 }MapValue;
 typedef char Bool;
 typedef struct point {
@@ -128,7 +121,7 @@ int numOfPoiWeeds = NUM_OF_POI_WEEDS_SIMPLE;
 int numOfLandmine = NUM_OF_LANDMINE_SIMPLE;
 int numOfBrain = NUM_OF_BRAIN_SIMPLE;
 int numOfFood = NUM_OF_FOODS_SIMPLE;
-int numOfTone = NUM_OF_TONE_SIMPLE;
+int numOfBarrier = NUM_OF_BARRIER_SIMPLE;
 int food_x[NUM_OF_FOODS_SIMPLE];
 int food_y[NUM_OF_FOODS_SIMPLE];
 int poiWeeds_x[NUM_OF_POI_WEEDS_IMPOSSIBLE];
@@ -137,8 +130,8 @@ int landmine_x[NUM_OF_LANDMINE_IMPOSSIBLE];
 int landmine_y[NUM_OF_LANDMINE_IMPOSSIBLE];
 int brain_x[NUM_OF_BRAIN_SIMPLE];
 int brain_y[NUM_OF_BRAIN_SIMPLE];
-int tone_x[NUM_OF_TONE_IMPOSSIBLE];
-int tone_y[NUM_OF_TONE_IMPOSSIBLE];
+int tone_x[NUM_OF_BARRIER_IMPOSSIBLE*MAX_NUM_OF_TONE_PER_BARRIER];
+int tone_y[NUM_OF_BARRIER_IMPOSSIBLE*MAX_NUM_OF_TONE_PER_BARRIER];
 int snakeLength_1 = SNAKE_INIT_LENGTH;
 int snakeLength_2 = SNAKE_INIT_LENGTH;
 int foodIndex[NUM_OF_FOODS_SIMPLE];
@@ -261,20 +254,24 @@ void *playEatPoiWeedMusic(void*);
 void *playEatLandmineMusic(void*);
 void *playEatBrainMusic(void*);
 void *playBrainOverMusic(void*);
+void initArr();
 
 int main() {
 	srand((unsigned int)time(0));
 	initgraph(800, 620);
 	loadAllImages();
 	loadAllMusic();
+	Operation op;
 start:
 	mciSendString(_T("play menuMusic repeat"), NULL, 0, NULL);
+	initArr();
 	putimage(0, 0, &startBackground);
 	putimage(30, 560, &b_modelSetting);
 	putimage(300, 560, &b_difficultySetting);
 	putimage(570, 560, &b_continueGame);
 	putimage(720, 15, &b_exit);
-	Operation op = startMouseListening();
+	FlushMouseMsgBuffer();
+	op = startMouseListening();
 	mciSendString(_T("play buttonMusic from 0"), NULL, 0, NULL);
 	switch (op) {
 	case startGame:
@@ -602,21 +599,21 @@ void initParameter() {
 		sleepTime = SLEEP_TIME_SIMPLE;
 		numOfPoiWeeds = NUM_OF_POI_WEEDS_SIMPLE;
 		numOfLandmine = NUM_OF_LANDMINE_SIMPLE;
-		numOfTone = NUM_OF_TONE_SIMPLE;
+		numOfBarrier = NUM_OF_BARRIER_SIMPLE;
 		numOfFood = NUM_OF_FOODS_SIMPLE;
 		break;
 	case difficult_Difficulty:
 		sleepTime = SLEEP_TIME_DIFFICULT;
 		numOfPoiWeeds = NUM_OF_POI_WEEDS_DIFFICULT;
 		numOfLandmine = NUM_OF_LANDMINE_DIFFICULT;
-		numOfTone = NUM_OF_TONE_DIFFICULT;
+		numOfBarrier = NUM_OF_BARRIER_DIFFICULT;
 		numOfFood = NUM_OF_FOODS_DIFFICULT;
 		break;
 	case impossible_Difficulty:
 		sleepTime = SLEEP_TIME_IMPOSSIBLE;
 		numOfPoiWeeds = NUM_OF_POI_WEEDS_IMPOSSIBLE;
 		numOfLandmine = NUM_OF_LANDMINE_IMPOSSIBLE;
-		numOfTone = NUM_OF_TONE_IMPOSSIBLE;
+		numOfBarrier = NUM_OF_BARRIER_IMPOSSIBLE;
 		numOfFood = NUM_OF_FOODS_IMPOSSIBLE;
 		break;
 	}
@@ -822,7 +819,7 @@ Bool readFile() {
 		}
 
 		int toneSize = cJSON_GetArraySize(tone_x_arr);
-		for (int i = 0; i < NUM_OF_LANDMINE_IMPOSSIBLE; i++)
+		for (int i = 0; i < NUM_OF_LANDMINE_IMPOSSIBLE*MAX_NUM_OF_TONE_PER_BARRIER; i++)
 		{
 			if (i < toneSize) {
 				tone_x[i] = atoi(cJSON_Print(cJSON_GetArrayItem(tone_x_arr, i)));
@@ -865,7 +862,7 @@ Bool readFile() {
 			sleepTime = SLEEP_TIME_SIMPLE;
 			numOfPoiWeeds = NUM_OF_POI_WEEDS_SIMPLE;
 			numOfLandmine = NUM_OF_LANDMINE_SIMPLE;
-			numOfTone = NUM_OF_TONE_SIMPLE;
+			numOfBarrier = NUM_OF_BARRIER_SIMPLE;
 			numOfFood = NUM_OF_FOODS_SIMPLE;
 			scoreThresholdValue = SCORE_SIMPLE;
 			break;
@@ -873,7 +870,7 @@ Bool readFile() {
 			sleepTime = SLEEP_TIME_DIFFICULT;
 			numOfPoiWeeds = NUM_OF_POI_WEEDS_DIFFICULT;
 			numOfLandmine = NUM_OF_LANDMINE_DIFFICULT;
-			numOfTone = NUM_OF_TONE_DIFFICULT;
+			numOfBarrier = NUM_OF_BARRIER_DIFFICULT;
 			numOfFood = NUM_OF_FOODS_DIFFICULT;
 			scoreThresholdValue = SCORE_DIFFICULT;
 			break;
@@ -881,7 +878,7 @@ Bool readFile() {
 			sleepTime = SLEEP_TIME_IMPOSSIBLE;
 			numOfPoiWeeds = NUM_OF_POI_WEEDS_IMPOSSIBLE;
 			numOfLandmine = NUM_OF_LANDMINE_IMPOSSIBLE;
-			numOfTone = NUM_OF_TONE_IMPOSSIBLE;
+			numOfBarrier = NUM_OF_BARRIER_IMPOSSIBLE;
 			numOfFood = NUM_OF_FOODS_IMPOSSIBLE;
 			scoreThresholdValue = SCORE_IMPOSSIBLE;
 			break;
@@ -991,7 +988,7 @@ void writeFile() {
 		cJSON_AddItemToArray(landmine_y_arr, cJSON_CreateNumber(landmine_y[i]));
 	}
 
-	for (int i = 0; i < numOfTone; i++)
+	for (int i = 0; i < numOfBarrier*MAX_NUM_OF_TONE_PER_BARRIER; i++)
 	{
 		cJSON_AddItemToArray(tone_x_arr, cJSON_CreateNumber(tone_x[i]));
 		cJSON_AddItemToArray(tone_y_arr, cJSON_CreateNumber(tone_y[i]));
@@ -1301,7 +1298,7 @@ startPaint:
 					sleepTime = SLEEP_TIME_SIMPLE;
 					numOfPoiWeeds = NUM_OF_POI_WEEDS_SIMPLE;
 					numOfLandmine = NUM_OF_LANDMINE_SIMPLE;
-					numOfTone = NUM_OF_TONE_SIMPLE;
+					numOfBarrier = NUM_OF_BARRIER_SIMPLE;
 					numOfBrain = NUM_OF_BRAIN_SIMPLE;
 					numOfFood = NUM_OF_FOODS_SIMPLE;
 					currentDifficulty = simple_Difficulty;
@@ -1316,7 +1313,7 @@ startPaint:
 					sleepTime = SLEEP_TIME_DIFFICULT;
 					numOfPoiWeeds = NUM_OF_POI_WEEDS_DIFFICULT;
 					numOfLandmine = NUM_OF_LANDMINE_DIFFICULT;
-					numOfTone = NUM_OF_TONE_DIFFICULT;
+					numOfBarrier = NUM_OF_BARRIER_DIFFICULT;
 					numOfBrain = NUM_OF_BRAIN_DIFFICULT;
 					numOfFood = NUM_OF_FOODS_DIFFICULT;
 					currentDifficulty = difficult_Difficulty;
@@ -1331,7 +1328,7 @@ startPaint:
 					sleepTime = SLEEP_TIME_IMPOSSIBLE;
 					numOfPoiWeeds = NUM_OF_POI_WEEDS_IMPOSSIBLE;
 					numOfLandmine = NUM_OF_LANDMINE_IMPOSSIBLE;
-					numOfTone = NUM_OF_TONE_IMPOSSIBLE;
+					numOfBarrier = NUM_OF_BARRIER_IMPOSSIBLE;
 					numOfBrain = NUM_OF_BRAIN_IMPOSSIBLE;
 					numOfFood = NUM_OF_FOODS_IMPOSSIBLE;
 					currentDifficulty = impossible_Difficulty;
@@ -1582,6 +1579,7 @@ void gameStart_single() {
 	Sleep(1500);
 	cleardevice();
 	FlushConsoleInputBuffer(GetStdHandle(STD_INPUT_HANDLE));
+	FlushMouseMsgBuffer();
 	while (true)
 	{
 		paintPoiWeeds = !paintPoiWeeds;
@@ -1797,6 +1795,7 @@ void gameStart_double() {
 	Sleep(1500);
 	cleardevice();
 	FlushConsoleInputBuffer(GetStdHandle(STD_INPUT_HANDLE));
+	FlushMouseMsgBuffer();
 	while (true)
 	{
 		score_1 = 10 * (snakeLength_1 - SNAKE_INIT_LENGTH);
@@ -2308,7 +2307,7 @@ Bool eatTone(Player player) {
 	switch (direction)
 	{
 	case UP:
-		for (int i = 0; i < numOfTone; i++)
+		for (int i = 0; i < numOfBarrier*MAX_NUM_OF_TONE_PER_BARRIER; i++)
 		{
 			if (head->point.x == tone_x[i] && head->point.y == tone_y[i] + 1)
 			{
@@ -2319,7 +2318,7 @@ Bool eatTone(Player player) {
 		}
 		return false;
 	case DOWN:
-		for (int i = 0; i < numOfTone; i++)
+		for (int i = 0; i < numOfBarrier*MAX_NUM_OF_TONE_PER_BARRIER; i++)
 		{
 			if (head->point.x == tone_x[i] && head->point.y == tone_y[i] - 1)
 			{
@@ -2330,7 +2329,7 @@ Bool eatTone(Player player) {
 		}
 		return false;
 	case LEFT:
-		for (int i = 0; i < numOfTone; i++)
+		for (int i = 0; i < numOfBarrier*MAX_NUM_OF_TONE_PER_BARRIER; i++)
 		{
 			if (head->point.x == tone_x[i] + 1 && head->point.y == tone_y[i])
 			{
@@ -2341,7 +2340,7 @@ Bool eatTone(Player player) {
 		}
 		return false;
 	case RIGHT:
-		for (int i = 0; i < numOfTone; i++)
+		for (int i = 0; i < numOfBarrier*MAX_NUM_OF_TONE_PER_BARRIER; i++)
 		{
 			if (head->point.x == tone_x[i] - 1 && head->point.y == tone_y[i])
 			{
@@ -2461,7 +2460,7 @@ void createLandmine(int x0, int y0, int dx, int dy) {
 		{
 			landmine_x[i] = rand() % 30;
 			landmine_y[i] = rand() % 30;
-			while (map[landmine_x[i]][landmine_y[i]] != 0) {
+			while (map[landmine_x[i]][landmine_y[i]] != NOTHING) {
 				landmine_x[i] = rand() % 30;
 				landmine_y[i] = rand() % 30;
 			}
@@ -2497,7 +2496,7 @@ void createBrain(int x0, int y0, int dx, int dy) {
 		{
 			brain_x[i] = rand() % 30;
 			brain_y[i] = rand() % 30;
-			while (map[brain_x[i]][brain_y[i]] != 0) {
+			while (map[brain_x[i]][brain_y[i]] != NOTHING) {
 				brain_x[i] = rand() % 30;
 				brain_y[i] = rand() % 30;
 			}
@@ -2523,24 +2522,90 @@ void createTone(int x0, int y0, int dx, int dy) {
 	if (!hasTone)
 	{
 		setfillcolor(BLACK);
-		for (int i = 0; i < numOfTone; i++)
+		int numOfTonePerBarrier;
+		int index = 0;
+		Bool newBarrier;
+		int safeDis = 5;
+		int r;
+		int rIndex;
+		int times;
+		if (currentModel == single_Model)
 		{
-			tone_x[i] = rand() % 30;
-			tone_y[i] = rand() % 30;
-			while (map[tone_x[i]][tone_y[i]] != 0) {
-				tone_x[i] = rand() % 30;
-				tone_y[i] = rand() % 30;
+			for (int i = 1; i <= safeDis; i++)
+			{
+				map[head_1->point.x - i][head_1->point.y] = NO_ANYTHING;
 			}
-			map[tone_x[i]][tone_y[i]] = TONE;
-			putimage(x0 + tone_x[i] * dx, y0 + tone_y[i] * dy, &tone);
-			//paintCell(x0, y0, dx, dy, landmine_x[i], landmine_y[i]);
+		}
+		else {
+			for (int i = 1; i <= safeDis; i++)
+			{
+				map[head_1->point.x][head_1->point.y - i] = NO_ANYTHING;
+				map[head_2->point.x][head_2->point.y - i] = NO_ANYTHING;
+			}
+		}
+		
+		for (int i = 0; i < numOfBarrier; i++)
+		{
+			numOfTonePerBarrier = rand() % (MAX_NUM_OF_TONE_PER_BARRIER - MIN_NUM_OF_TONE_PER_BARRIER + 1) + MIN_NUM_OF_TONE_PER_BARRIER;
+			newBarrier = true;
+			for (int j = 0; j < numOfTonePerBarrier; j++, index++)
+			{
+				if (newBarrier)
+				{
+					do
+					{
+						tone_x[index] = rand() % 30;
+						tone_y[index] = rand() % 30;
+					} while (map[tone_x[index]][tone_y[index]] != NOTHING);
+					newBarrier = false;
+				}
+				else
+				{
+					times = 0;
+					do
+					{
+						r = rand() % 4;
+						rIndex = rand() % j + 1;
+						switch (r)
+						{
+						case 0:
+							tone_x[index] = tone_x[index - rIndex] - 1;
+							tone_y[index] = tone_y[index - rIndex];
+							break;
+						case 1:
+							tone_x[index] = tone_x[index - rIndex] + 1;
+							tone_y[index] = tone_y[index - rIndex];
+							break;
+						case 2:
+							tone_x[index] = tone_x[index - rIndex];
+							tone_y[index] = tone_y[index - rIndex] - 1;
+							break;
+						case 3:
+							tone_x[index] = tone_x[index - rIndex];
+							tone_y[index] = tone_y[index - rIndex] + 1;
+							break;
+						}
+						times++;
+					} while ((tone_x[index] > 29 || tone_x[index] < 0 || tone_y[index] > 29 || tone_y[index] < 0 || map[tone_x[index]][tone_y[index]] != NOTHING) && times < 50);
+					if (times >= 50)
+					{
+						do
+						{
+							tone_x[index] = rand() % 30;
+							tone_y[index] = rand() % 30;
+						} while (map[tone_x[index]][tone_y[index]] != NOTHING);
+					}
+				}
+				map[tone_x[index]][tone_y[index]] = TONE;
+				putimage(x0 + tone_x[index] * dx, y0 + tone_y[index] * dy, &tone);
+			}
 		}
 		hasTone = true;
 	}
 	else
 	{
 		setfillcolor(BLACK);
-		for (int i = 0; i < numOfTone; i++)
+		for (int i = 0; i < numOfBarrier*MAX_NUM_OF_TONE_PER_BARRIER; i++)
 		{
 			if (tone_x[i] != -2 && tone_y[i] != -2)
 			{
@@ -2650,7 +2715,7 @@ void createPoiWeeds(int x0, int y0, int dx, int dy) {
 		{
 			poiWeeds_x[i] = rand() % 30;
 			poiWeeds_y[i] = rand() % 30;
-			while (map[poiWeeds_x[i]][poiWeeds_y[i]] != 0) {
+			while (map[poiWeeds_x[i]][poiWeeds_y[i]] != NOTHING) {
 				poiWeeds_x[i] = rand() % 30;
 				poiWeeds_y[i] = rand() % 30;
 			}
@@ -2814,7 +2879,7 @@ void createFood(int x0, int y0, int dx, int dy) {
 		{
 			food_x[i] = rand() % 30;
 			food_y[i] = rand() % 30;
-			while (map[food_x[i]][food_y[i]] != 0)
+			while (map[food_x[i]][food_y[i]] != NOTHING)
 			{
 				food_x[i] = rand() % 30;
 				food_y[i] = rand() % 30;
@@ -3031,9 +3096,9 @@ void paintMap(Bool hasBrain_1, Bool hasBrain_2) {
 	{
 		paintSnake(x0, y0, dx, dy, P2, hasBrain_2);
 	}
+	createTone(x0, y0, dx, dy);
 	createPoiWeeds(x0, y0, dx, dy);
 	createLandmine(x0, y0, dx, dy);
-	createTone(x0, y0, dx, dy);
 	createBrain(x0, y0, dx, dy);
 	createFood(x0, y0, dx, dy);
 	paintButtons();
@@ -3137,31 +3202,66 @@ void updateMap() {
 		}
 	}
 
-	for (int i = 0; i < NUM_OF_FOODS_SIMPLE; i++)
+	for (int i = 0; i < numOfFood; i++)
 	{
 		if (food_x[i] != -2 && food_y[i] != -2) {
 			map[food_x[i]][food_y[i]] = FOOD;
 		}
 	}
 
-	for (int i = 0; i < NUM_OF_POI_WEEDS_IMPOSSIBLE; i++)
+	for (int i = 0; i < numOfPoiWeeds; i++)
 	{
 		if (poiWeeds_x[i] != -2 && poiWeeds_y[i] != -2) {
 			map[poiWeeds_x[i]][poiWeeds_y[i]] = POI_WEED;
 		}
 	}
 
-	for (int i = 0; i < NUM_OF_LANDMINE_IMPOSSIBLE; i++)
+	for (int i = 0; i < numOfLandmine; i++)
 	{
 		if (landmine_x[i] != -2 && landmine_y[i] != -2) {
 			map[landmine_x[i]][landmine_y[i]] = LANDMINE;
 		}
 	}
 
-	for (int i = 0; i < NUM_OF_TONE_IMPOSSIBLE; i++)
+	for (int i = 0; i < numOfBarrier*MAX_NUM_OF_TONE_PER_BARRIER; i++)
 	{
 		if (tone_x[i] != -2 && tone_y[i] != -2) {
 			map[tone_x[i]][tone_y[i]] = TONE;
 		}
+	}
+
+	for (int i = 0; i < numOfBrain; i++)
+	{
+		if (brain_x[i] != -2 && brain_y[i] != -2) {
+			map[brain_x[i]][brain_y[i]] = BRAIN;
+		}
+	}
+}
+
+void initArr() {
+	for (int i = 0; i < NUM_OF_FOODS_SIMPLE; i++)
+	{
+		food_x[i] = -2;
+		food_y[i] = -2;
+	}
+	for (int i = 0; i < NUM_OF_POI_WEEDS_IMPOSSIBLE; i++)
+	{
+		poiWeeds_x[i] = -2;
+		poiWeeds_y[i] = -2;
+	}
+	for (int i = 0; i < NUM_OF_BRAIN_SIMPLE; i++)
+	{
+		brain_x[i] = -2;
+		brain_y[i] = -2;
+	}
+	for (int i = 0; i < NUM_OF_LANDMINE_IMPOSSIBLE; i++)
+	{
+		landmine_x[i] = -2;
+		landmine_y[i] = -2;
+	}
+	for (int i = 0; i < MAX_NUM_OF_TONE_PER_BARRIER*NUM_OF_BARRIER_IMPOSSIBLE; i++)
+	{
+		tone_x[i] = -2;
+		tone_y[i] = -2;
 	}
 }
