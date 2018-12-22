@@ -29,15 +29,16 @@
 #define KEY_UP_2_1 'W'
 #define KEY_RIGHT_2_1 'D'
 #define KEY_DOWN_2_1 'S'
-#define NOTHING 0
-#define BODY_1 1
-#define HEAD_1 2
-#define BODY_2 3
-#define HEAD_2 4
-#define FOOD 5
-#define POI_WEED 6
-#define LANDMINE 7
-#define BRAIN 8
+//#define NOTHING 0
+//#define BODY_1 1
+//#define HEAD_1 2
+//#define BODY_2 3
+//#define HEAD_2 4
+//#define FOOD 5
+//#define POI_WEED 6
+//#define LANDMINE 7
+//#define BRAIN 8
+//#define TONE 9
 #define SLEEP_TIME_SIMPLE 100
 #define SLEEP_TIME_DIFFICULT 70
 #define SLEEP_TIME_IMPOSSIBLE 50
@@ -53,6 +54,9 @@
 #define NUM_OF_FOODS_SIMPLE 5
 #define NUM_OF_FOODS_DIFFICULT 3
 #define NUM_OF_FOODS_IMPOSSIBLE 1
+#define NUM_OF_TONE_SIMPLE 10
+#define NUM_OF_TONE_DIFFICULT 20
+#define NUM_OF_TONE_IMPOSSIBLE 40
 #define SCORE_SIMPLE 300
 #define SCORE_DIFFICULT 500
 #define SCORE_IMPOSSIBLE 700
@@ -79,6 +83,7 @@ typedef enum {
 	modelSetting,
 	difficultySetting,
 	continueGame,
+	exitGame,
 	nothing
 }Operation;
 typedef enum {
@@ -93,8 +98,20 @@ typedef enum {
 	P2,
 	none
 }Player;
+typedef enum {
+	NOTHING,
+	BODY_1,
+	HEAD_1,
+	BODY_2,
+	HEAD_2,
+	FOOD,
+	POI_WEED,
+	LANDMINE,
+	BRAIN,
+	TONE,
+}MapValue;
 typedef char Bool;
-typedef struct Point {
+typedef struct point {
 	int x;
 	int y;
 }Point;
@@ -111,6 +128,7 @@ int numOfPoiWeeds = NUM_OF_POI_WEEDS_SIMPLE;
 int numOfLandmine = NUM_OF_LANDMINE_SIMPLE;
 int numOfBrain = NUM_OF_BRAIN_SIMPLE;
 int numOfFood = NUM_OF_FOODS_SIMPLE;
+int numOfTone = NUM_OF_TONE_SIMPLE;
 int food_x[NUM_OF_FOODS_SIMPLE];
 int food_y[NUM_OF_FOODS_SIMPLE];
 int poiWeeds_x[NUM_OF_POI_WEEDS_IMPOSSIBLE];
@@ -119,12 +137,14 @@ int landmine_x[NUM_OF_LANDMINE_IMPOSSIBLE];
 int landmine_y[NUM_OF_LANDMINE_IMPOSSIBLE];
 int brain_x[NUM_OF_BRAIN_SIMPLE];
 int brain_y[NUM_OF_BRAIN_SIMPLE];
+int tone_x[NUM_OF_TONE_IMPOSSIBLE];
+int tone_y[NUM_OF_TONE_IMPOSSIBLE];
 int snakeLength_1 = SNAKE_INIT_LENGTH;
 int snakeLength_2 = SNAKE_INIT_LENGTH;
 int foodIndex[NUM_OF_FOODS_SIMPLE];
 int scoreThresholdValue = SCORE_SIMPLE;
 
-char map[MAP_Y][MAP_X];
+MapValue map[MAP_Y][MAP_X];
 
 Snake *head_1, *tail_1;
 Snake *head_2, *tail_2;
@@ -134,6 +154,7 @@ Bool hasFood = false;
 Bool hasPoiWeeds = false;
 Bool hasLandmine = false;
 Bool hasBrain = false;
+Bool hasTone = false;
 Bool keyUsed_1 = false;
 Bool keyUsed_2 = false;
 Bool doContinue = false;
@@ -153,10 +174,12 @@ IMAGE settingBackground;
 IMAGE b_continueGame;
 IMAGE b_difficultySetting;
 IMAGE b_modelSetting;
+IMAGE b_exit;
 IMAGE foods[12];
 IMAGE poiWeed;
 IMAGE landmine;
 IMAGE brain;
+IMAGE tone;
 IMAGE snake_1[5][4];
 IMAGE snake_2[5][4];
 IMAGE snakeBrain[4];
@@ -206,6 +229,8 @@ void reduceHalf(Player);
 Bool eatLandmine(Player);
 void createBrain(int, int, int, int);
 Bool eatBrain(Player);
+void createTone(int, int, int, int);
+Bool eatTone(Player);
 Bool outOfBoundary(Player);
 void gameStart_single();
 void gameStart_double();
@@ -248,6 +273,7 @@ start:
 	putimage(30, 560, &b_modelSetting);
 	putimage(300, 560, &b_difficultySetting);
 	putimage(570, 560, &b_continueGame);
+	putimage(720, 15, &b_exit);
 	Operation op = startMouseListening();
 	mciSendString(_T("play buttonMusic from 0"), NULL, 0, NULL);
 	switch (op) {
@@ -261,6 +287,8 @@ start:
 	case continueGame:
 		doContinue = true;
 		goto startGame;
+	case exitGame:
+		goto exit;
 	}
 startGame:
 	mciSendString(_T("stop menuMusic"), NULL, 0, NULL);
@@ -285,7 +313,7 @@ modelSetting:
 difficultySetting:
 	paintDifficultySetting();
 	goto start;
-	system("pause");
+exit:
 	return 0;
 }
 
@@ -359,9 +387,15 @@ Direction autoGetDirection(Player player, Model model) {
 			numOfDirection--;
 			continue;
 		}
+		if (map[x][y] == TONE)
+		{
+			directions[i] = ERR;
+			numOfDirection--;
+			continue;
+		}
 	}
 
-	if (numOfDirection == 0)
+	if (numOfDirection <= 0)
 	{
 		return currentDirection;
 	}
@@ -549,6 +583,7 @@ void initParameter() {
 	hasFood = false;
 	hasPoiWeeds = false;
 	hasLandmine = false;
+	hasTone = false;
 	hasBrain = false;
 	keyUsed_1 = false;
 	keyUsed_2 = false;
@@ -567,18 +602,21 @@ void initParameter() {
 		sleepTime = SLEEP_TIME_SIMPLE;
 		numOfPoiWeeds = NUM_OF_POI_WEEDS_SIMPLE;
 		numOfLandmine = NUM_OF_LANDMINE_SIMPLE;
+		numOfTone = NUM_OF_TONE_SIMPLE;
 		numOfFood = NUM_OF_FOODS_SIMPLE;
 		break;
 	case difficult_Difficulty:
 		sleepTime = SLEEP_TIME_DIFFICULT;
 		numOfPoiWeeds = NUM_OF_POI_WEEDS_DIFFICULT;
 		numOfLandmine = NUM_OF_LANDMINE_DIFFICULT;
+		numOfTone = NUM_OF_TONE_DIFFICULT;
 		numOfFood = NUM_OF_FOODS_DIFFICULT;
 		break;
 	case impossible_Difficulty:
 		sleepTime = SLEEP_TIME_IMPOSSIBLE;
 		numOfPoiWeeds = NUM_OF_POI_WEEDS_IMPOSSIBLE;
 		numOfLandmine = NUM_OF_LANDMINE_IMPOSSIBLE;
+		numOfTone = NUM_OF_TONE_IMPOSSIBLE;
 		numOfFood = NUM_OF_FOODS_IMPOSSIBLE;
 		break;
 	}
@@ -672,6 +710,7 @@ Bool readFile() {
 		cJSON *food = cJSON_GetObjectItem(memory, "food");
 		cJSON *poi_weed = cJSON_GetObjectItem(memory, "poi_weed");
 		cJSON *landmine = cJSON_GetObjectItem(memory, "landmine");
+		cJSON *tone = cJSON_GetObjectItem(memory, "tone");
 		cJSON *brain = cJSON_GetObjectItem(memory, "brain");
 		cJSON *food_x_arr = cJSON_GetObjectItem(food, "food_x");
 		cJSON *food_y_arr = cJSON_GetObjectItem(food, "food_y");
@@ -680,6 +719,8 @@ Bool readFile() {
 		cJSON *poi_weed_y_arr = cJSON_GetObjectItem(poi_weed, "poi_weed_y");
 		cJSON *landmine_x_arr = cJSON_GetObjectItem(landmine, "landmine_x");
 		cJSON *landmine_y_arr = cJSON_GetObjectItem(landmine, "landmine_y");
+		cJSON *tone_x_arr = cJSON_GetObjectItem(tone, "tone_x");
+		cJSON *tone_y_arr = cJSON_GetObjectItem(tone, "tone_y");
 		cJSON *brain_x_arr = cJSON_GetObjectItem(brain, "brain_x");
 		cJSON *brain_y_arr = cJSON_GetObjectItem(brain, "brain_y");
 		
@@ -780,6 +821,19 @@ Bool readFile() {
 			}
 		}
 
+		int toneSize = cJSON_GetArraySize(tone_x_arr);
+		for (int i = 0; i < NUM_OF_LANDMINE_IMPOSSIBLE; i++)
+		{
+			if (i < toneSize) {
+				tone_x[i] = atoi(cJSON_Print(cJSON_GetArrayItem(tone_x_arr, i)));
+				tone_y[i] = atoi(cJSON_Print(cJSON_GetArrayItem(tone_y_arr, i)));
+			}
+			else {
+				tone_x[i] = -2;
+				tone_y[i] = -2;
+			}
+		}
+
 		int brainSize = cJSON_GetArraySize(brain_x_arr);
 		for (int i = 0; i < NUM_OF_BRAIN_SIMPLE; i++)
 		{
@@ -797,6 +851,7 @@ Bool readFile() {
 		hasFood = true;
 		hasPoiWeeds = true;
 		hasLandmine = true;
+		hasTone = true;
 		hasBrain = true;
 		isPause = false;
 
@@ -810,6 +865,7 @@ Bool readFile() {
 			sleepTime = SLEEP_TIME_SIMPLE;
 			numOfPoiWeeds = NUM_OF_POI_WEEDS_SIMPLE;
 			numOfLandmine = NUM_OF_LANDMINE_SIMPLE;
+			numOfTone = NUM_OF_TONE_SIMPLE;
 			numOfFood = NUM_OF_FOODS_SIMPLE;
 			scoreThresholdValue = SCORE_SIMPLE;
 			break;
@@ -817,6 +873,7 @@ Bool readFile() {
 			sleepTime = SLEEP_TIME_DIFFICULT;
 			numOfPoiWeeds = NUM_OF_POI_WEEDS_DIFFICULT;
 			numOfLandmine = NUM_OF_LANDMINE_DIFFICULT;
+			numOfTone = NUM_OF_TONE_DIFFICULT;
 			numOfFood = NUM_OF_FOODS_DIFFICULT;
 			scoreThresholdValue = SCORE_DIFFICULT;
 			break;
@@ -824,6 +881,7 @@ Bool readFile() {
 			sleepTime = SLEEP_TIME_IMPOSSIBLE;
 			numOfPoiWeeds = NUM_OF_POI_WEEDS_IMPOSSIBLE;
 			numOfLandmine = NUM_OF_LANDMINE_IMPOSSIBLE;
+			numOfTone = NUM_OF_TONE_IMPOSSIBLE;
 			numOfFood = NUM_OF_FOODS_IMPOSSIBLE;
 			scoreThresholdValue = SCORE_IMPOSSIBLE;
 			break;
@@ -855,6 +913,7 @@ void writeFile() {
 	cJSON *food = cJSON_CreateObject();
 	cJSON *poi_weed = cJSON_CreateObject();
 	cJSON *landmine = cJSON_CreateObject();
+	cJSON *tone = cJSON_CreateObject();
 	cJSON *brain = cJSON_CreateObject();
 	cJSON *food_x_arr = cJSON_CreateArray();
 	cJSON *food_y_arr = cJSON_CreateArray();
@@ -863,6 +922,8 @@ void writeFile() {
 	cJSON *poi_weed_y_arr = cJSON_CreateArray();
 	cJSON *landmine_x_arr = cJSON_CreateArray();
 	cJSON *landmine_y_arr = cJSON_CreateArray();
+	cJSON *tone_x_arr = cJSON_CreateArray();
+	cJSON *tone_y_arr = cJSON_CreateArray();
 	cJSON *brain_x_arr = cJSON_CreateArray();
 	cJSON *brain_y_arr = cJSON_CreateArray();
 
@@ -889,6 +950,9 @@ void writeFile() {
 	cJSON_AddItemToObject(memory, "landmine", landmine);
 	cJSON_AddItemToObject(landmine, "landmine_x", landmine_x_arr);
 	cJSON_AddItemToObject(landmine, "landmine_y", landmine_y_arr);
+	cJSON_AddItemToObject(memory, "tone", tone);
+	cJSON_AddItemToObject(tone, "tone_x", tone_x_arr);
+	cJSON_AddItemToObject(tone, "tone_y", tone_y_arr);
 	cJSON_AddItemToObject(memory, "brain", brain);
 	cJSON_AddItemToObject(brain, "brain_x", brain_x_arr);
 	cJSON_AddItemToObject(brain, "brain_y", brain_y_arr);
@@ -925,6 +989,12 @@ void writeFile() {
 	{
 		cJSON_AddItemToArray(landmine_x_arr, cJSON_CreateNumber(landmine_x[i]));
 		cJSON_AddItemToArray(landmine_y_arr, cJSON_CreateNumber(landmine_y[i]));
+	}
+
+	for (int i = 0; i < numOfTone; i++)
+	{
+		cJSON_AddItemToArray(tone_x_arr, cJSON_CreateNumber(tone_x[i]));
+		cJSON_AddItemToArray(tone_y_arr, cJSON_CreateNumber(tone_y[i]));
 	}
 
 	for (int i = 0; i < numOfBrain; i++)
@@ -965,13 +1035,13 @@ void paintDoubleScore(int score_1, int score_2) {
 	itoa(score_2, scoreStr_2, 10);
 	setbkmode(TRANSPARENT);
 	settextcolor(BROWN);
-	settextstyle(50, 0, "隶书");
-	outtextxy(650, 50, "P1得分");
-	outtextxy(650, 250, "P2得分");
+	settextstyle(40, 0, "隶书");
+	outtextxy(630, 50, "红方得分");
+	outtextxy(630, 250, "绿方得分");
 	settextcolor(RED);
 	settextstyle(40, 0, "幼圆");
-	outtextxy(690, 130, scoreStr_1);
-	outtextxy(690, 330, scoreStr_2);
+	outtextxy(670, 100, scoreStr_1);
+	outtextxy(670, 300, scoreStr_2);
 }
 
 IMAGE* getSnakeImage(Snake* snakeBody, Player player, Bool hasBrain) {
@@ -1182,6 +1252,11 @@ Operation startMouseListening() {
 					//continue game
 					return continueGame;
 				}
+				else if (x > 720 && x < 780 && y > 15 && y < 75)
+				{
+					//exit game
+					return exitGame;
+				}
 			}
 		}
 	}
@@ -1226,6 +1301,7 @@ startPaint:
 					sleepTime = SLEEP_TIME_SIMPLE;
 					numOfPoiWeeds = NUM_OF_POI_WEEDS_SIMPLE;
 					numOfLandmine = NUM_OF_LANDMINE_SIMPLE;
+					numOfTone = NUM_OF_TONE_SIMPLE;
 					numOfBrain = NUM_OF_BRAIN_SIMPLE;
 					numOfFood = NUM_OF_FOODS_SIMPLE;
 					currentDifficulty = simple_Difficulty;
@@ -1240,6 +1316,7 @@ startPaint:
 					sleepTime = SLEEP_TIME_DIFFICULT;
 					numOfPoiWeeds = NUM_OF_POI_WEEDS_DIFFICULT;
 					numOfLandmine = NUM_OF_LANDMINE_DIFFICULT;
+					numOfTone = NUM_OF_TONE_DIFFICULT;
 					numOfBrain = NUM_OF_BRAIN_DIFFICULT;
 					numOfFood = NUM_OF_FOODS_DIFFICULT;
 					currentDifficulty = difficult_Difficulty;
@@ -1254,6 +1331,7 @@ startPaint:
 					sleepTime = SLEEP_TIME_IMPOSSIBLE;
 					numOfPoiWeeds = NUM_OF_POI_WEEDS_IMPOSSIBLE;
 					numOfLandmine = NUM_OF_LANDMINE_IMPOSSIBLE;
+					numOfTone = NUM_OF_TONE_IMPOSSIBLE;
 					numOfBrain = NUM_OF_BRAIN_IMPOSSIBLE;
 					numOfFood = NUM_OF_FOODS_IMPOSSIBLE;
 					currentDifficulty = impossible_Difficulty;
@@ -1347,6 +1425,7 @@ void loadAllImages() {
 	loadimage(&b_continueGame, "images/buttons/b_continueGame.png", 200, 40);
 	loadimage(&b_difficultySetting, "images/buttons/b_difficultySetting.png", 200, 40);
 	loadimage(&b_modelSetting, "images/buttons/b_modelSetting.png", 200, 40);
+	loadimage(&b_exit, "images/buttons/b_exit.png", 60, 60);
 	loadimage(&settingBack, "images/buttons/b_settingBack.png", 200, 60);
 	loadimage(&singleModel, "images/buttons/b_single.png", 200, 60);
 	loadimage(&doubleModel, "images/buttons/b_double.png", 200, 60);
@@ -1358,6 +1437,7 @@ void loadAllImages() {
 	loadimage(&brain, "images/foods/brain.png");
 	loadimage(&poiWeed, "images/foods/poi_weed.png");
 	loadimage(&landmine, "images/foods/landmine.png");
+	loadimage(&tone, "images/foods/tone.png");
 	loadimage(foods, "images/foods/food_1.png");
 	loadimage(foods + 1, "images/foods/food_2.png");
 	loadimage(foods + 2, "images/foods/food_3.png");
@@ -1658,6 +1738,9 @@ void gameStart_single() {
 				snakeLength_1 = snakeLength_1 - snakeLength_1 / 2;
 				move(P1);
 			}
+		}
+		else if (eatTone(P1)) {
+			isOver = true;
 		}
 		else if (eatBrain(P1)) {
 			if (pthread_create(&newThread_3, NULL, playEatBrainMusic, NULL) == -1)
@@ -1974,6 +2057,10 @@ void gameStart_double() {
 				move(P1);
 			}
 		}
+		else if (eatTone(P1)) {
+			isOver = true;
+			winner = P2;
+		}
 		else if (eatBrain(P1)) {
 			if (pthread_create(&newThread_1, NULL, playEatBrainMusic, NULL) == -1)
 				mciSendString(_T("play eatBrainMusic from 0"), NULL, 0, NULL);
@@ -2031,6 +2118,16 @@ void gameStart_double() {
 				reduceHalf(P2);
 				snakeLength_2 = snakeLength_2 - snakeLength_2 / 2;
 				move(P2);
+			}
+		}
+		else if (eatTone(P2)) {
+			isOver = true;
+			if (winner == P2)
+			{
+				winner = none;
+			}
+			else {
+				winner = P1;
 			}
 		}
 		else if (eatBrain(P2)) {
@@ -2185,6 +2282,71 @@ Bool eatLandmine(Player player) {
 			{
 				landmine_x[i] = -2;
 				landmine_y[i] = -2;
+				return true;
+			}
+		}
+		return false;
+	default:
+		return false;
+	}
+}
+
+Bool eatTone(Player player) {
+	Snake *head = NULL;
+	Direction direction = ERR;
+	switch (player)
+	{
+	case P1:
+		head = head_1;
+		direction = direction_1;
+		break;
+	case P2:
+		head = head_2;
+		direction = direction_2;
+		break;
+	}
+	switch (direction)
+	{
+	case UP:
+		for (int i = 0; i < numOfTone; i++)
+		{
+			if (head->point.x == tone_x[i] && head->point.y == tone_y[i] + 1)
+			{
+				tone_x[i] = -2;
+				tone_y[i] = -2;
+				return true;
+			}
+		}
+		return false;
+	case DOWN:
+		for (int i = 0; i < numOfTone; i++)
+		{
+			if (head->point.x == tone_x[i] && head->point.y == tone_y[i] - 1)
+			{
+				tone_x[i] = -2;
+				tone_y[i] = -2;
+				return true;
+			}
+		}
+		return false;
+	case LEFT:
+		for (int i = 0; i < numOfTone; i++)
+		{
+			if (head->point.x == tone_x[i] + 1 && head->point.y == tone_y[i])
+			{
+				tone_x[i] = -2;
+				tone_y[i] = -2;
+				return true;
+			}
+		}
+		return false;
+	case RIGHT:
+		for (int i = 0; i < numOfTone; i++)
+		{
+			if (head->point.x == tone_x[i] - 1 && head->point.y == tone_y[i])
+			{
+				tone_x[i] = -2;
+				tone_y[i] = -2;
 				return true;
 			}
 		}
@@ -2352,6 +2514,39 @@ void createBrain(int x0, int y0, int dx, int dy) {
 			{
 				map[brain_x[i]][brain_y[i]] = BRAIN;
 				putimage(x0 + brain_x[i] * dx, y0 + brain_y[i] * dy, &brain);
+			}
+		}
+	}
+}
+
+void createTone(int x0, int y0, int dx, int dy) {
+	if (!hasTone)
+	{
+		setfillcolor(BLACK);
+		for (int i = 0; i < numOfTone; i++)
+		{
+			tone_x[i] = rand() % 30;
+			tone_y[i] = rand() % 30;
+			while (map[tone_x[i]][tone_y[i]] != 0) {
+				tone_x[i] = rand() % 30;
+				tone_y[i] = rand() % 30;
+			}
+			map[tone_x[i]][tone_y[i]] = TONE;
+			putimage(x0 + tone_x[i] * dx, y0 + tone_y[i] * dy, &tone);
+			//paintCell(x0, y0, dx, dy, landmine_x[i], landmine_y[i]);
+		}
+		hasTone = true;
+	}
+	else
+	{
+		setfillcolor(BLACK);
+		for (int i = 0; i < numOfTone; i++)
+		{
+			if (tone_x[i] != -2 && tone_y[i] != -2)
+			{
+				map[tone_x[i]][tone_y[i]] = TONE;
+				putimage(x0 + tone_x[i] * dx, y0 + tone_y[i] * dy, &tone);
+				//paintCell(x0, y0, dx, dy, landmine_x[i], landmine_y[i]);
 			}
 		}
 	}
@@ -2838,6 +3033,7 @@ void paintMap(Bool hasBrain_1, Bool hasBrain_2) {
 	}
 	createPoiWeeds(x0, y0, dx, dy);
 	createLandmine(x0, y0, dx, dy);
+	createTone(x0, y0, dx, dy);
 	createBrain(x0, y0, dx, dy);
 	createFood(x0, y0, dx, dy);
 	paintButtons();
@@ -2959,6 +3155,13 @@ void updateMap() {
 	{
 		if (landmine_x[i] != -2 && landmine_y[i] != -2) {
 			map[landmine_x[i]][landmine_y[i]] = LANDMINE;
+		}
+	}
+
+	for (int i = 0; i < NUM_OF_TONE_IMPOSSIBLE; i++)
+	{
+		if (tone_x[i] != -2 && tone_y[i] != -2) {
+			map[tone_x[i]][tone_y[i]] = TONE;
 		}
 	}
 }
