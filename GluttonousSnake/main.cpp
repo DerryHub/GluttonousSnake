@@ -751,6 +751,10 @@ void writeTop3() {
 				top3Score[i] = highestScore;
 				highestScore = t;
 			}
+			else if (highestScore == top3Score[i])
+			{
+				break;
+			}
 		}
 
 		for (int i = 0; i < 3; i++)
@@ -1725,19 +1729,25 @@ void gameStart_single() {
 	FlushConsoleInputBuffer(GetStdHandle(STD_INPUT_HANDLE));
 	FlushMouseMsgBuffer();
 	keyUsed_1 = false;
+	isWin = false;
 	while (true)
 	{
 		paintPoiWeeds = !paintPoiWeeds;
+		cleardevice();
+		
+		putimage(0, 0, &gameBackground);
 		if (FLASH_FREQ == poi_times)
 		{
-			cleardevice();
-			putimage(0, 0, &gameBackground);
+			
+			
 			updateMap();
-			paintMap(hasBrain_1, false);
 			score = 10 * (snakeLength_1 - SNAKE_INIT_LENGTH);
-			paintSingleScore(score);
+			
 			
 		}
+		
+		paintSingleScore(score);
+		paintMap(hasBrain_1, false);
 		if (!start)
 		{
 			putimage(0, 200, &readyImage);
@@ -1902,13 +1912,11 @@ void gameStart_single() {
 
 		if (outOfBoundary(P1) || isOver || map[head_1->point.x][head_1->point.y] == BODY_1)
 		{
-			isWin = false;
 			break;
 		}
 		else if (score >= scoreThresholdValue)
 		{
 			isWin = true;
-			break;
 		}
 	}
 	isOver = true;
