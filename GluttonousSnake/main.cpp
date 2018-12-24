@@ -32,9 +32,9 @@
 #define SLEEP_TIME_SIMPLE 100
 #define SLEEP_TIME_DIFFICULT 70
 #define SLEEP_TIME_IMPOSSIBLE 50
-#define NUM_OF_POI_WEEDS_SIMPLE 2
+#define NUM_OF_POI_WEEDS_SIMPLE 3
 #define NUM_OF_POI_WEEDS_DIFFICULT 5
-#define NUM_OF_POI_WEEDS_IMPOSSIBLE 8
+#define NUM_OF_POI_WEEDS_IMPOSSIBLE 10
 #define NUM_OF_LANDMINE_SIMPLE 2
 #define NUM_OF_LANDMINE_DIFFICULT 4
 #define NUM_OF_LANDMINE_IMPOSSIBLE 8
@@ -44,9 +44,9 @@
 #define NUM_OF_FOODS_SIMPLE 5
 #define NUM_OF_FOODS_DIFFICULT 3
 #define NUM_OF_FOODS_IMPOSSIBLE 1
-#define NUM_OF_BARRIER_SIMPLE 2
+#define NUM_OF_BARRIER_SIMPLE 3
 #define NUM_OF_BARRIER_DIFFICULT 5
-#define NUM_OF_BARRIER_IMPOSSIBLE 8
+#define NUM_OF_BARRIER_IMPOSSIBLE 10
 #define MAX_NUM_OF_TONE_PER_BARRIER 8
 #define MIN_NUM_OF_TONE_PER_BARRIER 2
 #define SCORE_SIMPLE 300
@@ -76,6 +76,7 @@ typedef enum {
 	difficultySetting,
 	continueGame,
 	exitGame,
+	rankList,
 	nothing
 }Operation;
 typedef enum {
@@ -136,6 +137,8 @@ int snakeLength_1 = SNAKE_INIT_LENGTH;
 int snakeLength_2 = SNAKE_INIT_LENGTH;
 int foodIndex[NUM_OF_FOODS_SIMPLE];
 int scoreThresholdValue = SCORE_SIMPLE;
+int top3Score[3] = { 0, 0, 0 };
+int highestScore = 0;
 
 MapValue map[MAP_Y][MAP_X];
 
@@ -164,10 +167,12 @@ IMAGE startBackground;
 IMAGE readyImage;
 IMAGE gameBackground;
 IMAGE settingBackground;
+IMAGE rankBackground;
 IMAGE b_continueGame;
 IMAGE b_difficultySetting;
 IMAGE b_modelSetting;
 IMAGE b_exit;
+IMAGE b_rank;
 IMAGE foods[12];
 IMAGE poiWeed;
 IMAGE landmine;
@@ -233,6 +238,7 @@ Operation startMouseListening();
 IMAGE* getSnakeImage(Snake*, Player, Bool);
 void paintModelSetting();
 void paintDifficultySetting();
+void paintRankList();
 void paintSingleScore(int score);
 void paintDoubleScore(int score_1, int score_2);
 void writeFile();
@@ -255,6 +261,8 @@ void *playEatLandmineMusic(void*);
 void *playEatBrainMusic(void*);
 void *playBrainOverMusic(void*);
 void initArr();
+void readTop3();
+void writeTop3();
 
 int main() {
 	srand((unsigned int)time(0));
@@ -265,11 +273,13 @@ int main() {
 start:
 	mciSendString(_T("play menuMusic repeat"), NULL, 0, NULL);
 	initArr();
+	readTop3();
 	putimage(0, 0, &startBackground);
 	putimage(30, 560, &b_modelSetting);
 	putimage(300, 560, &b_difficultySetting);
 	putimage(570, 560, &b_continueGame);
 	putimage(720, 15, &b_exit);
+	putimage(20, 15, &b_rank);
 	FlushMouseMsgBuffer();
 	op = startMouseListening();
 	mciSendString(_T("play buttonMusic from 0"), NULL, 0, NULL);
@@ -286,6 +296,8 @@ start:
 		goto startGame;
 	case exitGame:
 		goto exit;
+	case rankList:
+		goto rankList;
 	}
 startGame:
 	mciSendString(_T("stop menuMusic"), NULL, 0, NULL);
@@ -309,6 +321,9 @@ modelSetting:
 	goto start;
 difficultySetting:
 	paintDifficultySetting();
+	goto start;
+rankList:
+	paintRankList();
 	goto start;
 exit:
 	return 0;
@@ -674,6 +689,84 @@ void paintWinner(Player player) {
 	delay(5000);
 }
 
+void readTop3() {
+	FILE *fp;
+	if ((fp = fopen("memory.json", "r")) != NULL)
+	{
+		char fileStr[3000];
+		char *sp = fileStr;
+		char temp;
+		temp = fgetc(fp);
+		int i = 0;
+		while (temp != EOF) {
+			*sp = temp;
+			sp++;
+			temp = fgetc(fp);
+			i++;
+		}
+		*sp = '\0';
+
+		cJSON *memory = cJSON_Parse(fileStr);
+		cJSON *rankList_arr = cJSON_GetObjectItem(memory, "rankList");
+		if (rankList_arr == NULL)
+		{
+			return;
+		}
+		for (int i = 0; i < 3; i++)
+		{
+			top3Score[i] = atoi(cJSON_Print(cJSON_GetArrayItem(rankList_arr, i)));
+		}
+
+		cJSON_Delete(memory);
+	}
+}
+
+void writeTop3() {
+	FILE *fp;
+	if ((fp = fopen("memory.json", "r")) != NULL)
+	{
+		char fileStr[3000];
+		char *sp = fileStr;
+		char temp;
+		temp = fgetc(fp);
+		int i = 0;
+		while (temp != EOF) {
+			*sp = temp;
+			sp++;
+			temp = fgetc(fp);
+			i++;
+		}
+		*sp = '\0';
+
+		cJSON *memory = cJSON_Parse(fileStr);
+		cJSON *rankList_arr = cJSON_CreateArray();
+
+		cJSON_AddItemToObject(memory, "rankList", rankList_arr);
+
+		int t;
+		for (int i = 0; i < 3; i++)
+		{
+			if (highestScore > top3Score[i]) {
+				t = top3Score[i];
+				top3Score[i] = highestScore;
+				highestScore = t;
+			}
+		}
+
+		for (int i = 0; i < 3; i++)
+		{
+			cJSON_AddItemToArray(rankList_arr, cJSON_CreateNumber(top3Score[i]));
+		}
+		highestScore = 0;
+
+		fp = fopen("memory.json", "w");
+		fputs(cJSON_Print(memory), fp);
+		fclose(fp);
+
+		cJSON_Delete(memory);
+	}
+}
+
 Bool readFile() {
 	FILE *fp;
 	if ((fp=fopen("memory.json", "r")) != NULL)
@@ -788,8 +881,7 @@ Bool readFile() {
 			else {
 				food_x[i] = -2;
 				food_y[i] = -2;
-			}
-			
+			}	
 		}
 
 		int poi_weedSize = cJSON_GetArraySize(poi_weed_x_arr);
@@ -1254,6 +1346,11 @@ Operation startMouseListening() {
 					//exit game
 					return exitGame;
 				}
+				else if (x > 20 && x < 80 && y > 15 && y < 75)
+				{
+					//ranking list
+					return rankList;
+				}
 			}
 		}
 	}
@@ -1347,6 +1444,51 @@ startPaint:
 done:;
 }
 
+void paintRankList() {
+	putimage(0, 0, &rankBackground);
+	putimage(300, 460, &settingBack);
+	int singleWidth;
+	char scoreStr[5];
+	int top_1 = top3Score[0];
+	int top_2 = top3Score[1];
+	int top_3 = top3Score[2];
+	setbkmode(TRANSPARENT);
+	settextcolor(RED);
+	settextstyle(30, 0, "свт╡");
+	itoa(top_1, scoreStr, 10);
+	singleWidth = 7 * (strlen(scoreStr) - 1);
+	outtextxy(399 - singleWidth, 207, scoreStr);
+
+	itoa(top_2, scoreStr, 10);
+	singleWidth = 7 * (strlen(scoreStr) - 1);
+	outtextxy(283 - singleWidth, 240, scoreStr);
+
+	itoa(top_3, scoreStr, 10);
+	singleWidth = 7 * (strlen(scoreStr) - 1);
+	outtextxy(513 - singleWidth, 270, scoreStr);
+	int x, y;
+	MOUSEMSG msg;
+	while (true)
+	{
+		if (MouseHit())
+		{
+			msg = GetMouseMsg();
+			x = msg.x;
+			y = msg.y;
+			switch (msg.uMsg)
+			{
+			case WM_LBUTTONDOWN:
+				if (x > 300 && x < 500 && y>460 && y < 520)
+				{
+					mciSendString(_T("play buttonMusic from 0"), NULL, 0, NULL);
+					goto done;
+				}
+			}
+		}
+	}
+done:;
+}
+
 void paintModelSetting() {
 	int choose_y;
 	switch (currentModel)
@@ -1419,10 +1561,12 @@ void loadAllImages() {
 	loadimage(&readyImage, "images/background/ready.png");
 	loadimage(&gameBackground, "images/background/gameBackground.png");
 	loadimage(&settingBackground, "images/background/settingBackground.png");
+	loadimage(&rankBackground, "images/background/rankBackground.png");
 	loadimage(&b_continueGame, "images/buttons/b_continueGame.png", 200, 40);
 	loadimage(&b_difficultySetting, "images/buttons/b_difficultySetting.png", 200, 40);
 	loadimage(&b_modelSetting, "images/buttons/b_modelSetting.png", 200, 40);
 	loadimage(&b_exit, "images/buttons/b_exit.png", 60, 60);
+	loadimage(&b_rank, "images/buttons/b_rank.png", 60, 60);
 	loadimage(&settingBack, "images/buttons/b_settingBack.png", 200, 60);
 	loadimage(&singleModel, "images/buttons/b_single.png", 200, 60);
 	loadimage(&doubleModel, "images/buttons/b_double.png", 200, 60);
@@ -1569,7 +1713,7 @@ void gameStart_single() {
 	int poiWeedsTime = 0;
 	Direction d_temp;
 	int keyASC;
-	int poi_times = 0;
+	int poi_times = FLASH_FREQ;
 	int brainTime = 0;
 	int autoTime = 0;
 	Bool start = false;
@@ -1580,16 +1724,20 @@ void gameStart_single() {
 	cleardevice();
 	FlushConsoleInputBuffer(GetStdHandle(STD_INPUT_HANDLE));
 	FlushMouseMsgBuffer();
+	keyUsed_1 = false;
 	while (true)
 	{
 		paintPoiWeeds = !paintPoiWeeds;
-		keyUsed_1 = false;
-		cleardevice();
-		putimage(0, 0, &gameBackground);
-		updateMap();
-		paintMap(hasBrain_1, false);
-		score = 10 * (snakeLength_1 - SNAKE_INIT_LENGTH);
-		paintSingleScore(score);
+		if (FLASH_FREQ == poi_times)
+		{
+			cleardevice();
+			putimage(0, 0, &gameBackground);
+			updateMap();
+			paintMap(hasBrain_1, false);
+			score = 10 * (snakeLength_1 - SNAKE_INIT_LENGTH);
+			paintSingleScore(score);
+			
+		}
 		if (!start)
 		{
 			putimage(0, 200, &readyImage);
@@ -1630,7 +1778,7 @@ void gameStart_single() {
 				mciSendString(_T("play pauseMusic from 0"), NULL, 0, NULL);
 				isPause = !isPause;
 			}
-			if (!keyUsed_1 && !autoMove_1 && !isPause)
+			if (!keyUsed_1 && !isPause)
 			{
 				d_temp = listenDirection(keyASC, P1);
 				if (d_temp != ERR)
@@ -1678,7 +1826,7 @@ void gameStart_single() {
 			{
 				autoMove_1 = true;
 				autoTime -= sleepTime;
-				if (autoTime < 2000)
+				if (autoTime < 2300)
 				{
 					if (!brainOvering)
 					{
@@ -1697,10 +1845,11 @@ void gameStart_single() {
 				autoMove_1 = false;
 				hasBrain_1 = false;
 			}
-			if (autoMove_1)
+			if (!(keyUsed_1 && autoTime < 2300 && autoTime > 0) && autoMove_1)
 			{
 				direction_1 = autoGetDirection(P1, single_Model);
 			}
+			keyUsed_1 = false;
 		}
 
 		if (eatFood(P1))
@@ -1773,6 +1922,8 @@ void gameStart_single() {
 	}
 	paintGameOver(isWin);
 start:
+	highestScore = score;
+	writeTop3();
 	mciSendString(_T("stop backgroundMusic"), NULL, 0, NULL);
 }
 
@@ -1905,7 +2056,7 @@ void gameStart_double() {
 			{
 				autoMove_1 = true;
 				autoTime_1 -= sleepTime;
-				if (autoTime_1 < 2000)
+				if (autoTime_1 < 2300)
 				{
 					if (!brainOvering_1)
 					{
@@ -1936,7 +2087,7 @@ void gameStart_double() {
 				{
 					autoMove_2 = true;
 					autoTime_2 -= sleepTime;
-					if (autoTime_2 < 2000)
+					if (autoTime_2 < 2300)
 					{
 						if (!brainOvering_2)
 						{
@@ -2199,6 +2350,16 @@ void gameStart_double() {
 	mciSendString(_T("play gameOverMusic from 0"), NULL, 0, NULL);
 	paintWinner(winner);
 start:
+	switch (currentModel)
+	{
+	case double_Model:
+		highestScore = max(score_1, score_2);
+		break;
+	case computer_Model:
+		highestScore = score_1;
+		break;
+	}
+	writeTop3();
 	mciSendString(_T("stop backgroundMusic"), NULL, 0, NULL);
 }
 
